@@ -1,0 +1,4 @@
+app/node_modules/
+terraform/provider
+terraform/.terraform/
+terraform/.terraform.lock.hcl
