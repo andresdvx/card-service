@@ -15,3 +15,9 @@ variable "lambda_sqs_create_card_handler" {
   type        = string
   default     = "create-request-card-lambda.handler"
 }
+
+variable "dynamodb_table_card" {
+  description = "Nombre de la tabla DynamoDB para almacenar la información de las tarjetas"
+  type        = string
+  default     = "card-table"
+}

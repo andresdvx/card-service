@@ -7,8 +7,9 @@ terraform {
   }
 }
 
+# Infraestructura para gestión de la cola SQS y la lambda que procesa los mensajes de la cola para creación de tarjetas DEBITO / CRÉDITO
 
-# cola para generación de tarjetas DEBITO / CRÉDITO
+# -> cola para generación de tarjetas DEBITO / CRÉDITO
 resource "aws_sqs_queue" "create-request-card-sqs" {
   name                        = var.sqs_create_request_card
   fifo_queue                  = false
@@ -16,7 +17,7 @@ resource "aws_sqs_queue" "create-request-card-sqs" {
   visibility_timeout_seconds  = 900
 }
 
-# lambda para procesamiento de la cola de creación de tarjetas
+# -> lambda para procesamiento de la cola de creación de tarjetas
 resource "aws_lambda_function" "create-request-card-lambda" {
   filename         = data.archive_file.lambda_sqs_create_card_file.output_path
   function_name    = var.lambda_sqs_create_card
@@ -65,5 +66,27 @@ resource "aws_lambda_event_source_mapping" "sqs_create_card_event_source" {
   function_response_types            = ["ReportBatchItemFailures"]
   scaling_config {
     maximum_concurrency = 5
+  }
+}
+
+
+# tablas dynamoDB
+
+# -> Tabla DynamoDB para almacenar la información de las tarjetas DEBITO / CRÉDITO
+resource "aws_dynamodb_table" "card-table" {
+  name           = var.dynamodb_table_card
+  billing_mode   = "PROVISIONED"
+  read_capacity  = 20
+  write_capacity = 20
+
+  hash_key = "uuid"
+
+  attribute {
+    name = "uuid"
+    type = "S"
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }

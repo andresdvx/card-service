@@ -19,7 +19,8 @@ data "aws_iam_policy_document" "assume_role_policy" {
 
 # IAM Role Policy Document for Lambda SQS Create Card Execution
 data "aws_iam_policy_document" "lambda_sqs_create_card_execution" {
-  statement {
+  
+  statement { # Permitir a la lambda interactuar con la cola SQS
     effect = "Allow"
     actions = [
       "sqs:GetQueueAttributes",
@@ -29,6 +30,16 @@ data "aws_iam_policy_document" "lambda_sqs_create_card_execution" {
     ]
     resources = [
       aws_sqs_queue.create-request-card-sqs.arn
+    ]
+  }
+
+  statement { # Permitir a la lambda escribir en la tabla DynamoDB de tarjetas
+    effect = "Allow"
+    actions = [
+      "dynamodb:PutItem",
+    ]
+    resources = [
+      aws_dynamodb_table.card-table.arn
     ]
   }
 }
