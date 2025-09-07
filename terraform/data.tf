@@ -1,7 +1,7 @@
 # Terraform Data Source for Lambda SQS Create Card File
 data "archive_file" "lambda_sqs_create_card_file" {
   type        = "zip"
-  source_file = "${path.module}./app/dist/create-request-card-lambda.js"
+  source_file = "${path.module}/../app/dist/create-request-card-lambda.js"
   output_path = "lambda_create-request-card-lambda.zip"
 }
 
@@ -26,7 +26,8 @@ data "aws_iam_policy_document" "lambda_sqs_create_card_execution" {
       "sqs:GetQueueAttributes",
       "sqs:SendMessage",
       "sqs:ReceiveMessage",
-      "sqs:DeleteMessage"
+      "sqs:DeleteMessage",
+      "sqs:GetQueueUrl"
     ]
     resources = [
       aws_sqs_queue.create-request-card-sqs.arn
@@ -37,6 +38,8 @@ data "aws_iam_policy_document" "lambda_sqs_create_card_execution" {
     effect = "Allow"
     actions = [
       "dynamodb:PutItem",
+      "dynamodb:GetItem",
+      "dynamodb:UpdateItem"
     ]
     resources = [
       aws_dynamodb_table.card-table.arn

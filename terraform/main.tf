@@ -15,6 +15,18 @@ resource "aws_sqs_queue" "create-request-card-sqs" {
   fifo_queue                  = false
   content_based_deduplication = false
   visibility_timeout_seconds  = 900
+  message_retention_seconds   = 1209600 # 14 días
+  receive_wait_time_seconds   = 20      # Long polling
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.create-request-card-dlq.arn
+    maxReceiveCount     = 3
+  })
+}
+
+# Dead Letter Queue para mensajes fallidos
+resource "aws_sqs_queue" "create-request-card-dlq" {
+  name                      = "${var.sqs_create_request_card}-dlq"
+  message_retention_seconds = 1209600 # 14 días
 }
 
 # -> lambda para procesamiento de la cola de creación de tarjetas
@@ -29,10 +41,16 @@ resource "aws_lambda_function" "create-request-card-lambda" {
   source_code_hash = data.archive_file.lambda_sqs_create_card_file.output_base64sha256
   publish          = true
 
+  environment {
+    variables = {
+      DYNAMODB_CARDS_TABLE = aws_dynamodb_table.card-table.name
+    }
+  }
+
   depends_on = [
     aws_iam_role_policy.iam_policy_lambda_sqs_create_card,
     data.archive_file.lambda_sqs_create_card_file,
-    aws_sqs_queue.create-request-card-sqs
+    aws_sqs_queue.create-request-card-sqs,
   ]
 
 }
@@ -71,6 +89,7 @@ resource "aws_lambda_event_source_mapping" "sqs_create_card_event_source" {
 
 
 # tablas dynamoDB
+
 
 # -> Tabla DynamoDB para almacenar la información de las tarjetas DEBITO / CRÉDITO
 resource "aws_dynamodb_table" "card-table" {
