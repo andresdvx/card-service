@@ -21,3 +21,21 @@ variable "dynamodb_table_card" {
   type        = string
   default     = "card-table"
 }
+
+variable "lambda_dlq_request_card_failed" {
+  description = "Handler de la lambda para el procesamiento de la cola DLQ de creación de tarjetas fallidas"
+  type        = string
+  default     = "card-request-failed"
+}
+
+variable "lambda_dlq_request_card_failed_handler" {
+  description = "Handler de la lambda para el procesamiento de la cola DLQ de creación de tarjetas fallidas"
+  type        = string
+  default     = "card-request-failed-lambda.handler"
+}
+
+variable "dynamodb_table_errors" {
+  description = "Nombre de la tabla DynamoDB para almacenar la información de los errores"
+  type        = string
+  default     = "card-table-error"
+}

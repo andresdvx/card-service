@@ -14,19 +14,14 @@ resource "aws_sqs_queue" "create-request-card-sqs" {
   name                        = var.sqs_create_request_card
   fifo_queue                  = false
   content_based_deduplication = false
-  visibility_timeout_seconds  = 900
-  message_retention_seconds   = 1209600 # 14 días
-  receive_wait_time_seconds   = 20      # Long polling
+  visibility_timeout_seconds  = 20
+  message_retention_seconds   = 1209600 
+  receive_wait_time_seconds   = 20      
+
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.create-request-card-dlq.arn
-    maxReceiveCount     = 3
+    maxReceiveCount     = 1
   })
-}
-
-# Dead Letter Queue para mensajes fallidos
-resource "aws_sqs_queue" "create-request-card-dlq" {
-  name                      = "${var.sqs_create_request_card}-dlq"
-  message_retention_seconds = 1209600 # 14 días
 }
 
 # -> lambda para procesamiento de la cola de creación de tarjetas
@@ -52,7 +47,6 @@ resource "aws_lambda_function" "create-request-card-lambda" {
     data.archive_file.lambda_sqs_create_card_file,
     aws_sqs_queue.create-request-card-sqs,
   ]
-
 }
 
 # IAM Role para la lambda de procesamiento de la cola SQS de creación de tarjetas
@@ -87,9 +81,7 @@ resource "aws_lambda_event_source_mapping" "sqs_create_card_event_source" {
   }
 }
 
-
 # tablas dynamoDB
-
 
 # -> Tabla DynamoDB para almacenar la información de las tarjetas DEBITO / CRÉDITO
 resource "aws_dynamodb_table" "card-table" {
@@ -97,6 +89,92 @@ resource "aws_dynamodb_table" "card-table" {
   billing_mode   = "PROVISIONED"
   read_capacity  = 20
   write_capacity = 20
+
+  hash_key = "uuid"
+
+  attribute {
+    name = "uuid"
+    type = "S"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# Infraestructura para las dlq, colas fallidas
+
+# -> Dead Letter Queue para mensajes fallidos
+resource "aws_sqs_queue" "create-request-card-dlq" {
+  name                      = "${var.sqs_create_request_card}-dlq"
+  message_retention_seconds = 1209600
+  visibility_timeout_seconds = 960
+  receive_wait_time_seconds = 20
+}
+
+# -> Lambda para procesar mensajes fallidos en la DLQ
+resource "aws_lambda_function" "card-request-failed" {
+  filename = data.archive_file.lambda_card_request_failed_file.output_path
+  function_name = var.lambda_dlq_request_card_failed
+  handler = var.lambda_dlq_request_card_failed_handler
+  runtime = "nodejs22.x"
+  timeout = 900
+  memory_size = 256
+  role = aws_iam_role.iam_rol_lambda_dql_request_card_failed.arn
+  source_code_hash = data.archive_file.lambda_card_request_failed_file.output_base64sha256
+  publish = true
+
+  environment {
+    variables = {
+      DYNAMODB_FAILED_REQUESTS_TABLE = aws_dynamodb_table.card-table-error.name
+    }
+  }
+
+  depends_on = [
+    aws_iam_role_policy.iam_policy_lambda_dql_request_card_failed,
+    data.archive_file.lambda_card_request_failed_file,
+    aws_sqs_queue.create-request-card-dlq,
+  ]
+}
+
+# IAM Role para la lambda de procesamiento de la DLQ
+resource "aws_iam_role" "iam_rol_lambda_dql_request_card_failed" {
+  name               = "iam_rol_lambda_dlq_request_card_failed"
+  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
+}
+
+# IAM Policy para la lambda de procesamiento de la DLQ
+resource "aws_iam_role_policy" "iam_policy_lambda_dql_request_card_failed" {
+  name   = "iam_policy_lambda_dlq_request_card_failed"
+  role = aws_iam_role.iam_rol_lambda_dql_request_card_failed.id
+  policy = data.aws_iam_policy_document.lambda_card_request_failed_execution.json
+}
+
+# Adjuntar la política gestionada AWSLambdaBasicExecutionRole a la IAM Role de la lambda
+resource "aws_iam_role_policy_attachment" "iam_policy_attachement_lambda_dlq_request_card_failed" {
+  role       = aws_iam_role.iam_rol_lambda_dql_request_card_failed.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# Mapeo de la cola DLQ a la lambda para que se dispare al llegar mensajes
+resource "aws_lambda_event_source_mapping" "sqs_dlq_request_card_failed_event_source" {
+  event_source_arn                   = aws_sqs_queue.create-request-card-dlq.arn
+  function_name                      = aws_lambda_function.card-request-failed.arn
+  batch_size                         = 10
+  maximum_batching_window_in_seconds = 0
+  enabled                            = true
+  function_response_types            = ["ReportBatchItemFailures"]
+  scaling_config {
+    maximum_concurrency = 5
+  }
+}
+
+# -> Tabla DynamoDB para almacenar los errores de procesamiento de tarjetas
+resource "aws_dynamodb_table" "card-table-error" {
+  name           = var.dynamodb_table_errors
+  billing_mode   = "PROVISIONED"
+  read_capacity  = 5
+  write_capacity = 5
 
   hash_key = "uuid"
 
