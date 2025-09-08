@@ -2,6 +2,7 @@ import middy from "@middy/core";
 import { type SQSEvent, type SQSBatchResponse } from "aws-lambda";
 import { DynamoDBService } from "../services/dynamodb/dynamodb.service.js";
 import { CardsService } from "../services/cards/cards.service.js";
+import { SimpleQueueService } from "../simple-queue-service/simple-queue.service.js";
 
 interface IBatchItemFailure {
   itemIdentifier: string;
@@ -10,7 +11,8 @@ interface IBatchItemFailure {
 const sqsProcessor = async (event: SQSEvent): Promise<SQSBatchResponse> => {
   const batchItemFailures: IBatchItemFailure[] = [];
   const dynamoDBService = new DynamoDBService();
-  const cardService = new CardsService(dynamoDBService);
+  const sqsService = new SimpleQueueService();
+  const cardService = new CardsService(dynamoDBService, sqsService);
 
   for (const record of event.Records) {
     try {

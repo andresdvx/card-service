@@ -23,3 +23,5 @@ const dlqProcessor = async (event: SQSEvent): Promise<SQSBatchResponse> => {
 };
 
 export const handler = middy<SQSEvent, SQSBatchResponse>(dlqProcessor);
+
+

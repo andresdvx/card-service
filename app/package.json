@@ -12,6 +12,7 @@
   "description": "",
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.883.0",
+    "@aws-sdk/client-sqs": "^3.883.0",
     "@aws-sdk/lib-dynamodb": "^3.883.0",
     "@middy/core": "^6.4.4",
     "@types/aws-lambda": "^8.10.152",

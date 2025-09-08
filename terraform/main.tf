@@ -39,6 +39,7 @@ resource "aws_lambda_function" "create-request-card-lambda" {
   environment {
     variables = {
       DYNAMODB_CARDS_TABLE = aws_dynamodb_table.card-table.name
+      NOTIFICATIONS_EMAIL_SQS_URL = data.aws_sqs_queue.notification-email-sqs.url
     }
   }
 

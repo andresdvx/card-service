@@ -37,7 +37,8 @@ data "aws_iam_policy_document" "lambda_sqs_create_card_execution" {
       "sqs:GetQueueUrl"
     ]
     resources = [
-      aws_sqs_queue.create-request-card-sqs.arn
+      aws_sqs_queue.create-request-card-sqs.arn,
+      data.aws_sqs_queue.notification-email-sqs.arn
     ]
   }
 
@@ -92,4 +93,9 @@ data "aws_iam_policy_document" "lambda_card_request_failed_execution" {
     resources = ["arn:aws:logs:*:*:*"]
   }
 
+}
+
+# Data Source para obtener la sqs existente
+data "aws_sqs_queue" "notification-email-sqs" {
+  name = "inferno-bank-notification-email-sqs-dev"
 }

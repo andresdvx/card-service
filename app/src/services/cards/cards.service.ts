@@ -1,3 +1,4 @@
+import type { SimpleQueueService } from "../../simple-queue-service/simple-queue.service.js";
 import type { DynamoDBService } from "../dynamodb/dynamodb.service.js";
 import { v4 as uuid } from "uuid";
 
@@ -7,20 +8,26 @@ export interface ICard {
   type: "DEBIT" | "CREDIT";
   status: "PENDING" | "ACTIVATED";
   balance: number;
-  createdAt: string; 
+  createdAt: string;
 }
 
 export class CardsService {
   private readonly TABLE_NAME: string;
   private readonly dynamoDBService: DynamoDBService;
+  private readonly sqsService: SimpleQueueService;
 
-  constructor(dynamoDBService: DynamoDBService) {
+  constructor(
+    dynamoDBService: DynamoDBService,
+    sqsService: SimpleQueueService
+  ) {
     this.dynamoDBService = dynamoDBService;
     this.TABLE_NAME = process.env.DYNAMODB_CARDS_TABLE!;
+    this.sqsService = sqsService;
   }
 
   async saveDebitCard(userId: string) {
     try {
+      
       const card: ICard = {
         uuid: uuid(),
         user_id: userId,
@@ -30,11 +37,24 @@ export class CardsService {
         createdAt: new Date().toISOString(),
       };
 
-      return await this.dynamoDBService.saveItem({
+      const res = await this.dynamoDBService.saveItem({
         TableName: this.TABLE_NAME,
         Item: card,
       });
 
+      await this.sqsService.sendMessage({
+        queueUrl: process.env.NOTIFICATIONS_EMAIL_SQS_URL!,
+        body: {
+          type: "CARD.CREATE",
+          data: {
+            date: new Date().toISOString(),
+            type: "DEBIT",
+            amount: 0,
+          },
+        },
+      });
+
+      return res;
     } catch (error) {
       console.error("Error saving debit card at CardsService:", error);
     }
@@ -42,6 +62,7 @@ export class CardsService {
 
   async saveCreditCard(userId: string) {
     try {
+
       const card: ICard = {
         uuid: uuid(),
         user_id: userId,
@@ -51,11 +72,24 @@ export class CardsService {
         createdAt: new Date().toISOString(),
       };
 
-      return await this.dynamoDBService.saveItem({
+      const res = await this.dynamoDBService.saveItem({
         TableName: this.TABLE_NAME,
         Item: card,
       });
 
+      await this.sqsService.sendMessage({
+        queueUrl: process.env.NOTIFICATIONS_EMAIL_SQS_URL!,
+        body: {
+          type: "CARD.CREATE",
+          data: {
+            date: new Date().toISOString(),
+            type: "CREDIT",
+            amount: card.balance,
+          },
+        },
+      });
+
+      return res;
     } catch (error) {
       console.error("Error saving credit card at CardsService:", error);
     }
