@@ -89,17 +89,6 @@ data "aws_iam_policy_document" "lambda_card_request_failed_execution" {
       aws_dynamodb_table.card-table-error.arn
     ]
   }
-
-  statement { # Permitir logs de CloudWatch
-    effect = "Allow"
-    actions = [
-      "logs:CreateLogGroup",
-      "logs:CreateLogStream",
-      "logs:PutLogEvents"
-    ]
-    resources = ["arn:aws:logs:*:*:*"]
-  }
-
 }
 
 # Data Source para obtener la sqs existente
@@ -119,7 +108,21 @@ data "aws_iam_policy_document" "lambda_card_purchase_execution" {
       "dynamodb:UpdateItem"
     ]
     resources = [
-      aws_dynamodb_table.card-purchase-table.arn
+      aws_dynamodb_table.transaction-table.arn
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "sqs:GetQueueAttributes",
+      "sqs:SendMessage",
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueUrl"
+    ]
+    resources = [
+      data.aws_sqs_queue.notification-email-sqs.arn
     ]
   }
 }

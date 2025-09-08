@@ -29965,6 +29965,2723 @@ var require_dist_cjs58 = __commonJS({
   }
 });
 
+// node_modules/@aws-sdk/middleware-sdk-sqs/dist-cjs/index.js
+var require_dist_cjs59 = __commonJS({
+  "node_modules/@aws-sdk/middleware-sdk-sqs/dist-cjs/index.js"(exports2, module2) {
+    "use strict";
+    var __defProp2 = Object.defineProperty;
+    var __getOwnPropDesc2 = Object.getOwnPropertyDescriptor;
+    var __getOwnPropNames2 = Object.getOwnPropertyNames;
+    var __hasOwnProp2 = Object.prototype.hasOwnProperty;
+    var __name = (target, value) => __defProp2(target, "name", { value, configurable: true });
+    var __export2 = (target, all) => {
+      for (var name in all)
+        __defProp2(target, name, { get: all[name], enumerable: true });
+    };
+    var __copyProps2 = (to, from, except, desc) => {
+      if (from && typeof from === "object" || typeof from === "function") {
+        for (let key of __getOwnPropNames2(from))
+          if (!__hasOwnProp2.call(to, key) && key !== except)
+            __defProp2(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc2(from, key)) || desc.enumerable });
+      }
+      return to;
+    };
+    var __toCommonJS2 = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
+    var index_exports = {};
+    __export2(index_exports, {
+      getQueueUrlPlugin: () => getQueueUrlPlugin,
+      getReceiveMessagePlugin: () => getReceiveMessagePlugin,
+      getSendMessageBatchPlugin: () => getSendMessageBatchPlugin,
+      getSendMessagePlugin: () => getSendMessagePlugin,
+      queueUrlMiddleware: () => queueUrlMiddleware,
+      queueUrlMiddlewareOptions: () => queueUrlMiddlewareOptions,
+      receiveMessageMiddleware: () => receiveMessageMiddleware,
+      receiveMessageMiddlewareOptions: () => receiveMessageMiddlewareOptions,
+      resolveQueueUrlConfig: () => resolveQueueUrlConfig,
+      sendMessageBatchMiddleware: () => sendMessageBatchMiddleware,
+      sendMessageBatchMiddlewareOptions: () => sendMessageBatchMiddlewareOptions,
+      sendMessageMiddleware: () => sendMessageMiddleware,
+      sendMessageMiddlewareOptions: () => sendMessageMiddlewareOptions
+    });
+    module2.exports = __toCommonJS2(index_exports);
+    var import_smithy_client28 = require_dist_cjs28();
+    var resolveQueueUrlConfig = /* @__PURE__ */ __name((config) => {
+      return Object.assign(config, {
+        useQueueUrlAsEndpoint: config.useQueueUrlAsEndpoint ?? true
+      });
+    }, "resolveQueueUrlConfig");
+    function queueUrlMiddleware({ useQueueUrlAsEndpoint, endpoint }) {
+      return (next, context) => {
+        return async (args) => {
+          const { input } = args;
+          const resolvedEndpoint = context.endpointV2;
+          if (!endpoint && input.QueueUrl && resolvedEndpoint && useQueueUrlAsEndpoint) {
+            const logger3 = context.logger instanceof import_smithy_client28.NoOpLogger || !context.logger?.warn ? console : context.logger;
+            try {
+              const queueUrl = new URL(input.QueueUrl);
+              const queueUrlOrigin = new URL(queueUrl.origin);
+              if (resolvedEndpoint.url.origin !== queueUrlOrigin.origin) {
+                logger3.warn(
+                  `QueueUrl=${input.QueueUrl} differs from SQSClient resolved endpoint=${resolvedEndpoint.url.toString()}, using QueueUrl host as endpoint.
+Set [endpoint=string] or [useQueueUrlAsEndpoint=false] on the SQSClient.`
+                );
+                context.endpointV2 = {
+                  ...resolvedEndpoint,
+                  url: queueUrlOrigin
+                };
+              }
+            } catch (e3) {
+              logger3.warn(e3);
+            }
+          }
+          return next(args);
+        };
+      };
+    }
+    __name(queueUrlMiddleware, "queueUrlMiddleware");
+    var queueUrlMiddlewareOptions = {
+      name: "queueUrlMiddleware",
+      relation: "after",
+      toMiddleware: "endpointV2Middleware",
+      override: true
+    };
+    var getQueueUrlPlugin = /* @__PURE__ */ __name((config) => ({
+      applyToStack: /* @__PURE__ */ __name((clientStack) => {
+        clientStack.addRelativeTo(queueUrlMiddleware(config), queueUrlMiddlewareOptions);
+      }, "applyToStack")
+    }), "getQueueUrlPlugin");
+    var import_util_hex_encoding = require_dist_cjs18();
+    var import_util_utf810 = require_dist_cjs12();
+    function receiveMessageMiddleware(options) {
+      return (next) => async (args) => {
+        const resp = await next({ ...args });
+        if (options.md5 === false) {
+          return resp;
+        }
+        const output = resp.output;
+        const messageIds = [];
+        if (output.Messages !== void 0) {
+          for (const message of output.Messages) {
+            const md53 = message.MD5OfBody;
+            const hash = new options.md5();
+            hash.update((0, import_util_utf810.toUint8Array)(message.Body || ""));
+            if (md53 !== (0, import_util_hex_encoding.toHex)(await hash.digest())) {
+              messageIds.push(message.MessageId);
+            }
+          }
+        }
+        if (messageIds.length > 0) {
+          throw new Error("Invalid MD5 checksum on messages: " + messageIds.join(", "));
+        }
+        return resp;
+      };
+    }
+    __name(receiveMessageMiddleware, "receiveMessageMiddleware");
+    var receiveMessageMiddlewareOptions = {
+      step: "initialize",
+      tags: ["VALIDATE_BODY_MD5"],
+      name: "receiveMessageMiddleware",
+      override: true
+    };
+    var getReceiveMessagePlugin = /* @__PURE__ */ __name((config) => ({
+      applyToStack: /* @__PURE__ */ __name((clientStack) => {
+        clientStack.add(receiveMessageMiddleware(config), receiveMessageMiddlewareOptions);
+      }, "applyToStack")
+    }), "getReceiveMessagePlugin");
+    var import_util_utf822 = require_dist_cjs12();
+    var sendMessageMiddleware = /* @__PURE__ */ __name((options) => (next) => async (args) => {
+      const resp = await next({ ...args });
+      if (options.md5 === false) {
+        return resp;
+      }
+      const output = resp.output;
+      const hash = new options.md5();
+      hash.update((0, import_util_utf822.toUint8Array)(args.input.MessageBody || ""));
+      if (output.MD5OfMessageBody !== (0, import_util_hex_encoding.toHex)(await hash.digest())) {
+        throw new Error("InvalidChecksumError");
+      }
+      return resp;
+    }, "sendMessageMiddleware");
+    var sendMessageMiddlewareOptions = {
+      step: "initialize",
+      tags: ["VALIDATE_BODY_MD5"],
+      name: "sendMessageMiddleware",
+      override: true
+    };
+    var getSendMessagePlugin = /* @__PURE__ */ __name((config) => ({
+      applyToStack: /* @__PURE__ */ __name((clientStack) => {
+        clientStack.add(sendMessageMiddleware(config), sendMessageMiddlewareOptions);
+      }, "applyToStack")
+    }), "getSendMessagePlugin");
+    var import_util_utf832 = require_dist_cjs12();
+    var sendMessageBatchMiddleware = /* @__PURE__ */ __name((options) => (next) => async (args) => {
+      const resp = await next({ ...args });
+      if (options.md5 === false) {
+        return resp;
+      }
+      const output = resp.output;
+      const messageIds = [];
+      const entries = {};
+      if (output.Successful !== void 0) {
+        for (const entry of output.Successful) {
+          if (entry.Id !== void 0) {
+            entries[entry.Id] = entry;
+          }
+        }
+      }
+      for (const entry of args.input.Entries) {
+        if (entries[entry.Id]) {
+          const md53 = entries[entry.Id].MD5OfMessageBody;
+          const hash = new options.md5();
+          hash.update((0, import_util_utf832.toUint8Array)(entry.MessageBody || ""));
+          if (md53 !== (0, import_util_hex_encoding.toHex)(await hash.digest())) {
+            messageIds.push(entries[entry.Id].MessageId);
+          }
+        }
+      }
+      if (messageIds.length > 0) {
+        throw new Error("Invalid MD5 checksum on messages: " + messageIds.join(", "));
+      }
+      return resp;
+    }, "sendMessageBatchMiddleware");
+    var sendMessageBatchMiddlewareOptions = {
+      step: "initialize",
+      tags: ["VALIDATE_BODY_MD5"],
+      name: "sendMessageBatchMiddleware",
+      override: true
+    };
+    var getSendMessageBatchPlugin = /* @__PURE__ */ __name((config) => ({
+      applyToStack: /* @__PURE__ */ __name((clientStack) => {
+        clientStack.add(sendMessageBatchMiddleware(config), sendMessageBatchMiddlewareOptions);
+      }, "applyToStack")
+    }), "getSendMessageBatchPlugin");
+  }
+});
+
+// node_modules/@aws-sdk/client-sqs/dist-cjs/auth/httpAuthSchemeProvider.js
+var require_httpAuthSchemeProvider3 = __commonJS({
+  "node_modules/@aws-sdk/client-sqs/dist-cjs/auth/httpAuthSchemeProvider.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.resolveHttpAuthSchemeConfig = exports2.defaultSQSHttpAuthSchemeProvider = exports2.defaultSQSHttpAuthSchemeParametersProvider = void 0;
+    var core_1 = (init_dist_es2(), __toCommonJS(dist_es_exports2));
+    var util_middleware_1 = require_dist_cjs2();
+    var defaultSQSHttpAuthSchemeParametersProvider = async (config, context, input) => {
+      return {
+        operation: (0, util_middleware_1.getSmithyContext)(context).operation,
+        region: await (0, util_middleware_1.normalizeProvider)(config.region)() || (() => {
+          throw new Error("expected `region` to be configured for `aws.auth#sigv4`");
+        })()
+      };
+    };
+    exports2.defaultSQSHttpAuthSchemeParametersProvider = defaultSQSHttpAuthSchemeParametersProvider;
+    function createAwsAuthSigv4HttpAuthOption3(authParameters) {
+      return {
+        schemeId: "aws.auth#sigv4",
+        signingProperties: {
+          name: "sqs",
+          region: authParameters.region
+        },
+        propertiesExtractor: (config, context) => ({
+          signingProperties: {
+            config,
+            context
+          }
+        })
+      };
+    }
+    var defaultSQSHttpAuthSchemeProvider = (authParameters) => {
+      const options = [];
+      switch (authParameters.operation) {
+        default: {
+          options.push(createAwsAuthSigv4HttpAuthOption3(authParameters));
+        }
+      }
+      return options;
+    };
+    exports2.defaultSQSHttpAuthSchemeProvider = defaultSQSHttpAuthSchemeProvider;
+    var resolveHttpAuthSchemeConfig3 = (config) => {
+      const config_0 = (0, core_1.resolveAwsSdkSigV4Config)(config);
+      return Object.assign(config_0, {
+        authSchemePreference: (0, util_middleware_1.normalizeProvider)(config.authSchemePreference ?? [])
+      });
+    };
+    exports2.resolveHttpAuthSchemeConfig = resolveHttpAuthSchemeConfig3;
+  }
+});
+
+// node_modules/@aws-sdk/client-sqs/package.json
+var require_package3 = __commonJS({
+  "node_modules/@aws-sdk/client-sqs/package.json"(exports2, module2) {
+    module2.exports = {
+      name: "@aws-sdk/client-sqs",
+      description: "AWS SDK for JavaScript Sqs Client for Node.js, Browser and React Native",
+      version: "3.883.0",
+      scripts: {
+        build: "concurrently 'yarn:build:cjs' 'yarn:build:es' 'yarn:build:types'",
+        "build:cjs": "node ../../scripts/compilation/inline client-sqs",
+        "build:es": "tsc -p tsconfig.es.json",
+        "build:include:deps": "lerna run --scope $npm_package_name --include-dependencies build",
+        "build:types": "tsc -p tsconfig.types.json",
+        "build:types:downlevel": "downlevel-dts dist-types dist-types/ts3.4",
+        clean: "rimraf ./dist-* && rimraf *.tsbuildinfo",
+        "extract:docs": "api-extractor run --local",
+        "generate:client": "node ../../scripts/generate-clients/single-service --solo sqs"
+      },
+      main: "./dist-cjs/index.js",
+      types: "./dist-types/index.d.ts",
+      module: "./dist-es/index.js",
+      sideEffects: false,
+      dependencies: {
+        "@aws-crypto/sha256-browser": "5.2.0",
+        "@aws-crypto/sha256-js": "5.2.0",
+        "@aws-sdk/core": "3.883.0",
+        "@aws-sdk/credential-provider-node": "3.883.0",
+        "@aws-sdk/middleware-host-header": "3.873.0",
+        "@aws-sdk/middleware-logger": "3.876.0",
+        "@aws-sdk/middleware-recursion-detection": "3.873.0",
+        "@aws-sdk/middleware-sdk-sqs": "3.882.0",
+        "@aws-sdk/middleware-user-agent": "3.883.0",
+        "@aws-sdk/region-config-resolver": "3.873.0",
+        "@aws-sdk/types": "3.862.0",
+        "@aws-sdk/util-endpoints": "3.879.0",
+        "@aws-sdk/util-user-agent-browser": "3.873.0",
+        "@aws-sdk/util-user-agent-node": "3.883.0",
+        "@smithy/config-resolver": "^4.1.5",
+        "@smithy/core": "^3.9.2",
+        "@smithy/fetch-http-handler": "^5.1.1",
+        "@smithy/hash-node": "^4.0.5",
+        "@smithy/invalid-dependency": "^4.0.5",
+        "@smithy/md5-js": "^4.0.5",
+        "@smithy/middleware-content-length": "^4.0.5",
+        "@smithy/middleware-endpoint": "^4.1.21",
+        "@smithy/middleware-retry": "^4.1.22",
+        "@smithy/middleware-serde": "^4.0.9",
+        "@smithy/middleware-stack": "^4.0.5",
+        "@smithy/node-config-provider": "^4.1.4",
+        "@smithy/node-http-handler": "^4.1.1",
+        "@smithy/protocol-http": "^5.1.3",
+        "@smithy/smithy-client": "^4.5.2",
+        "@smithy/types": "^4.3.2",
+        "@smithy/url-parser": "^4.0.5",
+        "@smithy/util-base64": "^4.0.0",
+        "@smithy/util-body-length-browser": "^4.0.0",
+        "@smithy/util-body-length-node": "^4.0.0",
+        "@smithy/util-defaults-mode-browser": "^4.0.29",
+        "@smithy/util-defaults-mode-node": "^4.0.29",
+        "@smithy/util-endpoints": "^3.0.7",
+        "@smithy/util-middleware": "^4.0.5",
+        "@smithy/util-retry": "^4.0.7",
+        "@smithy/util-utf8": "^4.0.0",
+        tslib: "^2.6.2"
+      },
+      devDependencies: {
+        "@tsconfig/node18": "18.2.4",
+        "@types/node": "^18.19.69",
+        concurrently: "7.0.0",
+        "downlevel-dts": "0.10.1",
+        rimraf: "3.0.2",
+        typescript: "~5.8.3"
+      },
+      engines: {
+        node: ">=18.0.0"
+      },
+      typesVersions: {
+        "<4.0": {
+          "dist-types/*": [
+            "dist-types/ts3.4/*"
+          ]
+        }
+      },
+      files: [
+        "dist-*/**"
+      ],
+      author: {
+        name: "AWS SDK for JavaScript Team",
+        url: "https://aws.amazon.com/javascript/"
+      },
+      license: "Apache-2.0",
+      browser: {
+        "./dist-es/runtimeConfig": "./dist-es/runtimeConfig.browser"
+      },
+      "react-native": {
+        "./dist-es/runtimeConfig": "./dist-es/runtimeConfig.native"
+      },
+      homepage: "https://github.com/aws/aws-sdk-js-v3/tree/main/clients/client-sqs",
+      repository: {
+        type: "git",
+        url: "https://github.com/aws/aws-sdk-js-v3.git",
+        directory: "clients/client-sqs"
+      }
+    };
+  }
+});
+
+// node_modules/@aws-sdk/client-sqs/dist-cjs/endpoint/ruleset.js
+var require_ruleset3 = __commonJS({
+  "node_modules/@aws-sdk/client-sqs/dist-cjs/endpoint/ruleset.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.ruleSet = void 0;
+    var u3 = "required";
+    var v6 = "fn";
+    var w3 = "argv";
+    var x3 = "ref";
+    var a3 = true;
+    var b3 = "isSet";
+    var c3 = "booleanEquals";
+    var d3 = "error";
+    var e3 = "endpoint";
+    var f3 = "tree";
+    var g3 = "PartitionResult";
+    var h3 = "getAttr";
+    var i3 = { [u3]: false, "type": "String" };
+    var j3 = { [u3]: true, "default": false, "type": "Boolean" };
+    var k3 = { [x3]: "Endpoint" };
+    var l3 = { [v6]: c3, [w3]: [{ [x3]: "UseFIPS" }, true] };
+    var m3 = { [v6]: c3, [w3]: [{ [x3]: "UseDualStack" }, true] };
+    var n3 = {};
+    var o3 = { [v6]: h3, [w3]: [{ [x3]: g3 }, "supportsFIPS"] };
+    var p3 = { [x3]: g3 };
+    var q3 = { [v6]: c3, [w3]: [true, { [v6]: h3, [w3]: [p3, "supportsDualStack"] }] };
+    var r3 = [l3];
+    var s3 = [m3];
+    var t3 = [{ [x3]: "Region" }];
+    var _data3 = { version: "1.0", parameters: { Region: i3, UseDualStack: j3, UseFIPS: j3, Endpoint: i3 }, rules: [{ conditions: [{ [v6]: b3, [w3]: [k3] }], rules: [{ conditions: r3, error: "Invalid Configuration: FIPS and custom endpoint are not supported", type: d3 }, { conditions: s3, error: "Invalid Configuration: Dualstack and custom endpoint are not supported", type: d3 }, { endpoint: { url: k3, properties: n3, headers: n3 }, type: e3 }], type: f3 }, { conditions: [{ [v6]: b3, [w3]: t3 }], rules: [{ conditions: [{ [v6]: "aws.partition", [w3]: t3, assign: g3 }], rules: [{ conditions: [l3, m3], rules: [{ conditions: [{ [v6]: c3, [w3]: [a3, o3] }, q3], rules: [{ endpoint: { url: "https://sqs-fips.{Region}.{PartitionResult#dualStackDnsSuffix}", properties: n3, headers: n3 }, type: e3 }], type: f3 }, { error: "FIPS and DualStack are enabled, but this partition does not support one or both", type: d3 }], type: f3 }, { conditions: r3, rules: [{ conditions: [{ [v6]: c3, [w3]: [o3, a3] }], rules: [{ conditions: [{ [v6]: "stringEquals", [w3]: [{ [v6]: h3, [w3]: [p3, "name"] }, "aws-us-gov"] }], endpoint: { url: "https://sqs.{Region}.amazonaws.com", properties: n3, headers: n3 }, type: e3 }, { endpoint: { url: "https://sqs-fips.{Region}.{PartitionResult#dnsSuffix}", properties: n3, headers: n3 }, type: e3 }], type: f3 }, { error: "FIPS is enabled but this partition does not support FIPS", type: d3 }], type: f3 }, { conditions: s3, rules: [{ conditions: [q3], rules: [{ endpoint: { url: "https://sqs.{Region}.{PartitionResult#dualStackDnsSuffix}", properties: n3, headers: n3 }, type: e3 }], type: f3 }, { error: "DualStack is enabled but this partition does not support DualStack", type: d3 }], type: f3 }, { endpoint: { url: "https://sqs.{Region}.{PartitionResult#dnsSuffix}", properties: n3, headers: n3 }, type: e3 }], type: f3 }], type: f3 }, { error: "Invalid Configuration: Missing Region", type: d3 }] };
+    exports2.ruleSet = _data3;
+  }
+});
+
+// node_modules/@aws-sdk/client-sqs/dist-cjs/endpoint/endpointResolver.js
+var require_endpointResolver3 = __commonJS({
+  "node_modules/@aws-sdk/client-sqs/dist-cjs/endpoint/endpointResolver.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.defaultEndpointResolver = void 0;
+    var util_endpoints_1 = require_dist_cjs23();
+    var util_endpoints_2 = require_dist_cjs20();
+    var ruleset_1 = require_ruleset3();
+    var cache3 = new util_endpoints_2.EndpointCache({
+      size: 50,
+      params: ["Endpoint", "Region", "UseDualStack", "UseFIPS"]
+    });
+    var defaultEndpointResolver3 = (endpointParams, context = {}) => {
+      return cache3.get(endpointParams, () => (0, util_endpoints_2.resolveEndpoint)(ruleset_1.ruleSet, {
+        endpointParams,
+        logger: context.logger
+      }));
+    };
+    exports2.defaultEndpointResolver = defaultEndpointResolver3;
+    util_endpoints_2.customEndpointFunctions.aws = util_endpoints_1.awsEndpointFunctions;
+  }
+});
+
+// node_modules/@aws-sdk/client-sqs/dist-cjs/runtimeConfig.shared.js
+var require_runtimeConfig_shared3 = __commonJS({
+  "node_modules/@aws-sdk/client-sqs/dist-cjs/runtimeConfig.shared.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.getRuntimeConfig = void 0;
+    var core_1 = (init_dist_es2(), __toCommonJS(dist_es_exports2));
+    var smithy_client_1 = require_dist_cjs28();
+    var url_parser_1 = require_dist_cjs22();
+    var util_base64_1 = require_dist_cjs13();
+    var util_utf8_1 = require_dist_cjs12();
+    var httpAuthSchemeProvider_1 = require_httpAuthSchemeProvider3();
+    var endpointResolver_1 = require_endpointResolver3();
+    var getRuntimeConfig5 = (config) => {
+      return {
+        apiVersion: "2012-11-05",
+        base64Decoder: config?.base64Decoder ?? util_base64_1.fromBase64,
+        base64Encoder: config?.base64Encoder ?? util_base64_1.toBase64,
+        disableHostPrefix: config?.disableHostPrefix ?? false,
+        endpointProvider: config?.endpointProvider ?? endpointResolver_1.defaultEndpointResolver,
+        extensions: config?.extensions ?? [],
+        httpAuthSchemeProvider: config?.httpAuthSchemeProvider ?? httpAuthSchemeProvider_1.defaultSQSHttpAuthSchemeProvider,
+        httpAuthSchemes: config?.httpAuthSchemes ?? [
+          {
+            schemeId: "aws.auth#sigv4",
+            identityProvider: (ipc) => ipc.getIdentityProvider("aws.auth#sigv4"),
+            signer: new core_1.AwsSdkSigV4Signer()
+          }
+        ],
+        logger: config?.logger ?? new smithy_client_1.NoOpLogger(),
+        serviceId: config?.serviceId ?? "SQS",
+        urlParser: config?.urlParser ?? url_parser_1.parseUrl,
+        utf8Decoder: config?.utf8Decoder ?? util_utf8_1.fromUtf8,
+        utf8Encoder: config?.utf8Encoder ?? util_utf8_1.toUtf8
+      };
+    };
+    exports2.getRuntimeConfig = getRuntimeConfig5;
+  }
+});
+
+// node_modules/@aws-sdk/client-sqs/dist-cjs/runtimeConfig.js
+var require_runtimeConfig3 = __commonJS({
+  "node_modules/@aws-sdk/client-sqs/dist-cjs/runtimeConfig.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.getRuntimeConfig = void 0;
+    var tslib_1 = (init_tslib_es6(), __toCommonJS(tslib_es6_exports));
+    var package_json_1 = tslib_1.__importDefault(require_package3());
+    var core_1 = (init_dist_es2(), __toCommonJS(dist_es_exports2));
+    var credential_provider_node_1 = require_dist_cjs54();
+    var util_user_agent_node_1 = require_dist_cjs43();
+    var config_resolver_1 = require_dist_cjs32();
+    var hash_node_1 = require_dist_cjs44();
+    var middleware_retry_1 = require_dist_cjs36();
+    var node_config_provider_1 = require_dist_cjs38();
+    var node_http_handler_1 = require_dist_cjs16();
+    var util_body_length_node_1 = require_dist_cjs45();
+    var util_retry_1 = require_dist_cjs35();
+    var runtimeConfig_shared_1 = require_runtimeConfig_shared3();
+    var smithy_client_1 = require_dist_cjs28();
+    var util_defaults_mode_node_1 = require_dist_cjs46();
+    var smithy_client_2 = require_dist_cjs28();
+    var getRuntimeConfig5 = (config) => {
+      (0, smithy_client_2.emitWarningIfUnsupportedVersion)(process.version);
+      const defaultsMode = (0, util_defaults_mode_node_1.resolveDefaultsModeConfig)(config);
+      const defaultConfigProvider = () => defaultsMode().then(smithy_client_1.loadConfigsForDefaultMode);
+      const clientSharedValues = (0, runtimeConfig_shared_1.getRuntimeConfig)(config);
+      (0, core_1.emitWarningIfUnsupportedVersion)(process.version);
+      const loaderConfig = {
+        profile: config?.profile,
+        logger: clientSharedValues.logger
+      };
+      return {
+        ...clientSharedValues,
+        ...config,
+        runtime: "node",
+        defaultsMode,
+        authSchemePreference: config?.authSchemePreference ?? (0, node_config_provider_1.loadConfig)(core_1.NODE_AUTH_SCHEME_PREFERENCE_OPTIONS, loaderConfig),
+        bodyLengthChecker: config?.bodyLengthChecker ?? util_body_length_node_1.calculateBodyLength,
+        credentialDefaultProvider: config?.credentialDefaultProvider ?? credential_provider_node_1.defaultProvider,
+        defaultUserAgentProvider: config?.defaultUserAgentProvider ?? (0, util_user_agent_node_1.createDefaultUserAgentProvider)({ serviceId: clientSharedValues.serviceId, clientVersion: package_json_1.default.version }),
+        maxAttempts: config?.maxAttempts ?? (0, node_config_provider_1.loadConfig)(middleware_retry_1.NODE_MAX_ATTEMPT_CONFIG_OPTIONS, config),
+        md5: config?.md5 ?? hash_node_1.Hash.bind(null, "md5"),
+        region: config?.region ?? (0, node_config_provider_1.loadConfig)(config_resolver_1.NODE_REGION_CONFIG_OPTIONS, { ...config_resolver_1.NODE_REGION_CONFIG_FILE_OPTIONS, ...loaderConfig }),
+        requestHandler: node_http_handler_1.NodeHttpHandler.create(config?.requestHandler ?? defaultConfigProvider),
+        retryMode: config?.retryMode ?? (0, node_config_provider_1.loadConfig)({
+          ...middleware_retry_1.NODE_RETRY_MODE_CONFIG_OPTIONS,
+          default: async () => (await defaultConfigProvider()).retryMode || util_retry_1.DEFAULT_RETRY_MODE
+        }, config),
+        sha256: config?.sha256 ?? hash_node_1.Hash.bind(null, "sha256"),
+        streamCollector: config?.streamCollector ?? node_http_handler_1.streamCollector,
+        useDualstackEndpoint: config?.useDualstackEndpoint ?? (0, node_config_provider_1.loadConfig)(config_resolver_1.NODE_USE_DUALSTACK_ENDPOINT_CONFIG_OPTIONS, loaderConfig),
+        useFipsEndpoint: config?.useFipsEndpoint ?? (0, node_config_provider_1.loadConfig)(config_resolver_1.NODE_USE_FIPS_ENDPOINT_CONFIG_OPTIONS, loaderConfig),
+        userAgentAppId: config?.userAgentAppId ?? (0, node_config_provider_1.loadConfig)(util_user_agent_node_1.NODE_APP_ID_CONFIG_OPTIONS, loaderConfig)
+      };
+    };
+    exports2.getRuntimeConfig = getRuntimeConfig5;
+  }
+});
+
+// node_modules/@aws-sdk/client-sqs/dist-cjs/index.js
+var require_dist_cjs60 = __commonJS({
+  "node_modules/@aws-sdk/client-sqs/dist-cjs/index.js"(exports2, module2) {
+    "use strict";
+    var __defProp2 = Object.defineProperty;
+    var __getOwnPropDesc2 = Object.getOwnPropertyDescriptor;
+    var __getOwnPropNames2 = Object.getOwnPropertyNames;
+    var __hasOwnProp2 = Object.prototype.hasOwnProperty;
+    var __name = (target, value) => __defProp2(target, "name", { value, configurable: true });
+    var __export2 = (target, all) => {
+      for (var name in all)
+        __defProp2(target, name, { get: all[name], enumerable: true });
+    };
+    var __copyProps2 = (to, from, except, desc) => {
+      if (from && typeof from === "object" || typeof from === "function") {
+        for (let key of __getOwnPropNames2(from))
+          if (!__hasOwnProp2.call(to, key) && key !== except)
+            __defProp2(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc2(from, key)) || desc.enumerable });
+      }
+      return to;
+    };
+    var __toCommonJS2 = (mod) => __copyProps2(__defProp2({}, "__esModule", { value: true }), mod);
+    var index_exports = {};
+    __export2(index_exports, {
+      AddPermissionCommand: () => AddPermissionCommand,
+      BatchEntryIdsNotDistinct: () => BatchEntryIdsNotDistinct,
+      BatchRequestTooLong: () => BatchRequestTooLong,
+      CancelMessageMoveTaskCommand: () => CancelMessageMoveTaskCommand,
+      ChangeMessageVisibilityBatchCommand: () => ChangeMessageVisibilityBatchCommand,
+      ChangeMessageVisibilityCommand: () => ChangeMessageVisibilityCommand,
+      CreateQueueCommand: () => CreateQueueCommand,
+      DeleteMessageBatchCommand: () => DeleteMessageBatchCommand,
+      DeleteMessageCommand: () => DeleteMessageCommand,
+      DeleteQueueCommand: () => DeleteQueueCommand,
+      EmptyBatchRequest: () => EmptyBatchRequest,
+      GetQueueAttributesCommand: () => GetQueueAttributesCommand,
+      GetQueueUrlCommand: () => GetQueueUrlCommand,
+      InvalidAddress: () => InvalidAddress,
+      InvalidAttributeName: () => InvalidAttributeName,
+      InvalidAttributeValue: () => InvalidAttributeValue,
+      InvalidBatchEntryId: () => InvalidBatchEntryId,
+      InvalidIdFormat: () => InvalidIdFormat,
+      InvalidMessageContents: () => InvalidMessageContents,
+      InvalidSecurity: () => InvalidSecurity,
+      KmsAccessDenied: () => KmsAccessDenied,
+      KmsDisabled: () => KmsDisabled,
+      KmsInvalidKeyUsage: () => KmsInvalidKeyUsage,
+      KmsInvalidState: () => KmsInvalidState,
+      KmsNotFound: () => KmsNotFound,
+      KmsOptInRequired: () => KmsOptInRequired,
+      KmsThrottled: () => KmsThrottled,
+      ListDeadLetterSourceQueuesCommand: () => ListDeadLetterSourceQueuesCommand,
+      ListMessageMoveTasksCommand: () => ListMessageMoveTasksCommand,
+      ListQueueTagsCommand: () => ListQueueTagsCommand,
+      ListQueuesCommand: () => ListQueuesCommand,
+      MessageNotInflight: () => MessageNotInflight,
+      MessageSystemAttributeName: () => MessageSystemAttributeName,
+      MessageSystemAttributeNameForSends: () => MessageSystemAttributeNameForSends,
+      OverLimit: () => OverLimit,
+      PurgeQueueCommand: () => PurgeQueueCommand,
+      PurgeQueueInProgress: () => PurgeQueueInProgress,
+      QueueAttributeName: () => QueueAttributeName,
+      QueueDeletedRecently: () => QueueDeletedRecently,
+      QueueDoesNotExist: () => QueueDoesNotExist,
+      QueueNameExists: () => QueueNameExists,
+      ReceiptHandleIsInvalid: () => ReceiptHandleIsInvalid,
+      ReceiveMessageCommand: () => ReceiveMessageCommand,
+      RemovePermissionCommand: () => RemovePermissionCommand,
+      RequestThrottled: () => RequestThrottled,
+      ResourceNotFoundException: () => ResourceNotFoundException,
+      SQS: () => SQS,
+      SQSClient: () => SQSClient2,
+      SQSServiceException: () => SQSServiceException,
+      SendMessageBatchCommand: () => SendMessageBatchCommand,
+      SendMessageCommand: () => SendMessageCommand2,
+      SetQueueAttributesCommand: () => SetQueueAttributesCommand,
+      StartMessageMoveTaskCommand: () => StartMessageMoveTaskCommand,
+      TagQueueCommand: () => TagQueueCommand,
+      TooManyEntriesInBatchRequest: () => TooManyEntriesInBatchRequest,
+      UnsupportedOperation: () => UnsupportedOperation,
+      UntagQueueCommand: () => UntagQueueCommand,
+      __Client: () => import_smithy_client28.Client,
+      paginateListDeadLetterSourceQueues: () => paginateListDeadLetterSourceQueues,
+      paginateListQueues: () => paginateListQueues
+    });
+    module2.exports = __toCommonJS2(index_exports);
+    var import_middleware_host_header3 = require_dist_cjs6();
+    var import_middleware_logger3 = require_dist_cjs7();
+    var import_middleware_recursion_detection3 = require_dist_cjs8();
+    var import_middleware_sdk_sqs = require_dist_cjs59();
+    var import_middleware_user_agent3 = require_dist_cjs30();
+    var import_config_resolver5 = require_dist_cjs32();
+    var import_core18 = (init_dist_es(), __toCommonJS(dist_es_exports));
+    var import_middleware_content_length3 = require_dist_cjs33();
+    var import_middleware_endpoint6 = require_dist_cjs39();
+    var import_middleware_retry5 = require_dist_cjs36();
+    var import_httpAuthSchemeProvider5 = require_httpAuthSchemeProvider3();
+    var resolveClientEndpointParameters3 = /* @__PURE__ */ __name((options) => {
+      return Object.assign(options, {
+        useDualstackEndpoint: options.useDualstackEndpoint ?? false,
+        useFipsEndpoint: options.useFipsEndpoint ?? false,
+        defaultSigningName: "sqs"
+      });
+    }, "resolveClientEndpointParameters");
+    var commonParams3 = {
+      UseFIPS: { type: "builtInParams", name: "useFipsEndpoint" },
+      Endpoint: { type: "builtInParams", name: "endpoint" },
+      Region: { type: "builtInParams", name: "region" },
+      UseDualStack: { type: "builtInParams", name: "useDualstackEndpoint" }
+    };
+    var import_runtimeConfig5 = require_runtimeConfig3();
+    var import_region_config_resolver3 = require_dist_cjs47();
+    var import_protocol_http15 = require_dist_cjs3();
+    var import_smithy_client28 = require_dist_cjs28();
+    var getHttpAuthExtensionConfiguration3 = /* @__PURE__ */ __name((runtimeConfig) => {
+      const _httpAuthSchemes = runtimeConfig.httpAuthSchemes;
+      let _httpAuthSchemeProvider = runtimeConfig.httpAuthSchemeProvider;
+      let _credentials = runtimeConfig.credentials;
+      return {
+        setHttpAuthScheme(httpAuthScheme) {
+          const index = _httpAuthSchemes.findIndex((scheme) => scheme.schemeId === httpAuthScheme.schemeId);
+          if (index === -1) {
+            _httpAuthSchemes.push(httpAuthScheme);
+          } else {
+            _httpAuthSchemes.splice(index, 1, httpAuthScheme);
+          }
+        },
+        httpAuthSchemes() {
+          return _httpAuthSchemes;
+        },
+        setHttpAuthSchemeProvider(httpAuthSchemeProvider) {
+          _httpAuthSchemeProvider = httpAuthSchemeProvider;
+        },
+        httpAuthSchemeProvider() {
+          return _httpAuthSchemeProvider;
+        },
+        setCredentials(credentials) {
+          _credentials = credentials;
+        },
+        credentials() {
+          return _credentials;
+        }
+      };
+    }, "getHttpAuthExtensionConfiguration");
+    var resolveHttpAuthRuntimeConfig3 = /* @__PURE__ */ __name((config) => {
+      return {
+        httpAuthSchemes: config.httpAuthSchemes(),
+        httpAuthSchemeProvider: config.httpAuthSchemeProvider(),
+        credentials: config.credentials()
+      };
+    }, "resolveHttpAuthRuntimeConfig");
+    var resolveRuntimeExtensions3 = /* @__PURE__ */ __name((runtimeConfig, extensions) => {
+      const extensionConfiguration = Object.assign(
+        (0, import_region_config_resolver3.getAwsRegionExtensionConfiguration)(runtimeConfig),
+        (0, import_smithy_client28.getDefaultExtensionConfiguration)(runtimeConfig),
+        (0, import_protocol_http15.getHttpHandlerExtensionConfiguration)(runtimeConfig),
+        getHttpAuthExtensionConfiguration3(runtimeConfig)
+      );
+      extensions.forEach((extension) => extension.configure(extensionConfiguration));
+      return Object.assign(
+        runtimeConfig,
+        (0, import_region_config_resolver3.resolveAwsRegionExtensionConfiguration)(extensionConfiguration),
+        (0, import_smithy_client28.resolveDefaultRuntimeConfig)(extensionConfiguration),
+        (0, import_protocol_http15.resolveHttpHandlerRuntimeConfig)(extensionConfiguration),
+        resolveHttpAuthRuntimeConfig3(extensionConfiguration)
+      );
+    }, "resolveRuntimeExtensions");
+    var SQSClient2 = class extends import_smithy_client28.Client {
+      static {
+        __name(this, "SQSClient");
+      }
+      /**
+       * The resolved configuration of SQSClient class. This is resolved and normalized from the {@link SQSClientConfig | constructor configuration interface}.
+       */
+      config;
+      constructor(...[configuration]) {
+        const _config_0 = (0, import_runtimeConfig5.getRuntimeConfig)(configuration || {});
+        super(_config_0);
+        this.initConfig = _config_0;
+        const _config_1 = resolveClientEndpointParameters3(_config_0);
+        const _config_2 = (0, import_middleware_user_agent3.resolveUserAgentConfig)(_config_1);
+        const _config_3 = (0, import_middleware_retry5.resolveRetryConfig)(_config_2);
+        const _config_4 = (0, import_config_resolver5.resolveRegionConfig)(_config_3);
+        const _config_5 = (0, import_middleware_host_header3.resolveHostHeaderConfig)(_config_4);
+        const _config_6 = (0, import_middleware_endpoint6.resolveEndpointConfig)(_config_5);
+        const _config_7 = (0, import_middleware_sdk_sqs.resolveQueueUrlConfig)(_config_6);
+        const _config_8 = (0, import_httpAuthSchemeProvider5.resolveHttpAuthSchemeConfig)(_config_7);
+        const _config_9 = resolveRuntimeExtensions3(_config_8, configuration?.extensions || []);
+        this.config = _config_9;
+        this.middlewareStack.use((0, import_middleware_user_agent3.getUserAgentPlugin)(this.config));
+        this.middlewareStack.use((0, import_middleware_retry5.getRetryPlugin)(this.config));
+        this.middlewareStack.use((0, import_middleware_content_length3.getContentLengthPlugin)(this.config));
+        this.middlewareStack.use((0, import_middleware_host_header3.getHostHeaderPlugin)(this.config));
+        this.middlewareStack.use((0, import_middleware_logger3.getLoggerPlugin)(this.config));
+        this.middlewareStack.use((0, import_middleware_recursion_detection3.getRecursionDetectionPlugin)(this.config));
+        this.middlewareStack.use((0, import_middleware_sdk_sqs.getQueueUrlPlugin)(this.config));
+        this.middlewareStack.use(
+          (0, import_core18.getHttpAuthSchemeEndpointRuleSetPlugin)(this.config, {
+            httpAuthSchemeParametersProvider: import_httpAuthSchemeProvider5.defaultSQSHttpAuthSchemeParametersProvider,
+            identityProviderConfigProvider: /* @__PURE__ */ __name(async (config) => new import_core18.DefaultIdentityProviderConfig({
+              "aws.auth#sigv4": config.credentials
+            }), "identityProviderConfigProvider")
+          })
+        );
+        this.middlewareStack.use((0, import_core18.getHttpSigningPlugin)(this.config));
+      }
+      /**
+       * Destroy underlying resources, like sockets. It's usually not necessary to do this.
+       * However in Node.js, it's best to explicitly shut down the client's agent when it is no longer needed.
+       * Otherwise, sockets might stay open for quite a long time before the server terminates them.
+       */
+      destroy() {
+        super.destroy();
+      }
+    };
+    var import_middleware_serde5 = require_dist_cjs9();
+    var import_core22 = (init_dist_es2(), __toCommonJS(dist_es_exports2));
+    var SQSServiceException = class _SQSServiceException extends import_smithy_client28.ServiceException {
+      static {
+        __name(this, "SQSServiceException");
+      }
+      /**
+       * @internal
+       */
+      constructor(options) {
+        super(options);
+        Object.setPrototypeOf(this, _SQSServiceException.prototype);
+      }
+    };
+    var InvalidAddress = class _InvalidAddress extends SQSServiceException {
+      static {
+        __name(this, "InvalidAddress");
+      }
+      name = "InvalidAddress";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "InvalidAddress",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _InvalidAddress.prototype);
+      }
+    };
+    var InvalidSecurity = class _InvalidSecurity extends SQSServiceException {
+      static {
+        __name(this, "InvalidSecurity");
+      }
+      name = "InvalidSecurity";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "InvalidSecurity",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _InvalidSecurity.prototype);
+      }
+    };
+    var OverLimit = class _OverLimit extends SQSServiceException {
+      static {
+        __name(this, "OverLimit");
+      }
+      name = "OverLimit";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "OverLimit",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _OverLimit.prototype);
+      }
+    };
+    var QueueDoesNotExist = class _QueueDoesNotExist extends SQSServiceException {
+      static {
+        __name(this, "QueueDoesNotExist");
+      }
+      name = "QueueDoesNotExist";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "QueueDoesNotExist",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _QueueDoesNotExist.prototype);
+      }
+    };
+    var RequestThrottled = class _RequestThrottled extends SQSServiceException {
+      static {
+        __name(this, "RequestThrottled");
+      }
+      name = "RequestThrottled";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "RequestThrottled",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _RequestThrottled.prototype);
+      }
+    };
+    var UnsupportedOperation = class _UnsupportedOperation extends SQSServiceException {
+      static {
+        __name(this, "UnsupportedOperation");
+      }
+      name = "UnsupportedOperation";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "UnsupportedOperation",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _UnsupportedOperation.prototype);
+      }
+    };
+    var ResourceNotFoundException = class _ResourceNotFoundException extends SQSServiceException {
+      static {
+        __name(this, "ResourceNotFoundException");
+      }
+      name = "ResourceNotFoundException";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "ResourceNotFoundException",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _ResourceNotFoundException.prototype);
+      }
+    };
+    var MessageNotInflight = class _MessageNotInflight extends SQSServiceException {
+      static {
+        __name(this, "MessageNotInflight");
+      }
+      name = "MessageNotInflight";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "MessageNotInflight",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _MessageNotInflight.prototype);
+      }
+    };
+    var ReceiptHandleIsInvalid = class _ReceiptHandleIsInvalid extends SQSServiceException {
+      static {
+        __name(this, "ReceiptHandleIsInvalid");
+      }
+      name = "ReceiptHandleIsInvalid";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "ReceiptHandleIsInvalid",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _ReceiptHandleIsInvalid.prototype);
+      }
+    };
+    var BatchEntryIdsNotDistinct = class _BatchEntryIdsNotDistinct extends SQSServiceException {
+      static {
+        __name(this, "BatchEntryIdsNotDistinct");
+      }
+      name = "BatchEntryIdsNotDistinct";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "BatchEntryIdsNotDistinct",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _BatchEntryIdsNotDistinct.prototype);
+      }
+    };
+    var EmptyBatchRequest = class _EmptyBatchRequest extends SQSServiceException {
+      static {
+        __name(this, "EmptyBatchRequest");
+      }
+      name = "EmptyBatchRequest";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "EmptyBatchRequest",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _EmptyBatchRequest.prototype);
+      }
+    };
+    var InvalidBatchEntryId = class _InvalidBatchEntryId extends SQSServiceException {
+      static {
+        __name(this, "InvalidBatchEntryId");
+      }
+      name = "InvalidBatchEntryId";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "InvalidBatchEntryId",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _InvalidBatchEntryId.prototype);
+      }
+    };
+    var TooManyEntriesInBatchRequest = class _TooManyEntriesInBatchRequest extends SQSServiceException {
+      static {
+        __name(this, "TooManyEntriesInBatchRequest");
+      }
+      name = "TooManyEntriesInBatchRequest";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "TooManyEntriesInBatchRequest",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _TooManyEntriesInBatchRequest.prototype);
+      }
+    };
+    var QueueAttributeName = {
+      All: "All",
+      ApproximateNumberOfMessages: "ApproximateNumberOfMessages",
+      ApproximateNumberOfMessagesDelayed: "ApproximateNumberOfMessagesDelayed",
+      ApproximateNumberOfMessagesNotVisible: "ApproximateNumberOfMessagesNotVisible",
+      ContentBasedDeduplication: "ContentBasedDeduplication",
+      CreatedTimestamp: "CreatedTimestamp",
+      DeduplicationScope: "DeduplicationScope",
+      DelaySeconds: "DelaySeconds",
+      FifoQueue: "FifoQueue",
+      FifoThroughputLimit: "FifoThroughputLimit",
+      KmsDataKeyReusePeriodSeconds: "KmsDataKeyReusePeriodSeconds",
+      KmsMasterKeyId: "KmsMasterKeyId",
+      LastModifiedTimestamp: "LastModifiedTimestamp",
+      MaximumMessageSize: "MaximumMessageSize",
+      MessageRetentionPeriod: "MessageRetentionPeriod",
+      Policy: "Policy",
+      QueueArn: "QueueArn",
+      ReceiveMessageWaitTimeSeconds: "ReceiveMessageWaitTimeSeconds",
+      RedriveAllowPolicy: "RedriveAllowPolicy",
+      RedrivePolicy: "RedrivePolicy",
+      SqsManagedSseEnabled: "SqsManagedSseEnabled",
+      VisibilityTimeout: "VisibilityTimeout"
+    };
+    var InvalidAttributeName = class _InvalidAttributeName extends SQSServiceException {
+      static {
+        __name(this, "InvalidAttributeName");
+      }
+      name = "InvalidAttributeName";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "InvalidAttributeName",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _InvalidAttributeName.prototype);
+      }
+    };
+    var InvalidAttributeValue = class _InvalidAttributeValue extends SQSServiceException {
+      static {
+        __name(this, "InvalidAttributeValue");
+      }
+      name = "InvalidAttributeValue";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "InvalidAttributeValue",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _InvalidAttributeValue.prototype);
+      }
+    };
+    var QueueDeletedRecently = class _QueueDeletedRecently extends SQSServiceException {
+      static {
+        __name(this, "QueueDeletedRecently");
+      }
+      name = "QueueDeletedRecently";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "QueueDeletedRecently",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _QueueDeletedRecently.prototype);
+      }
+    };
+    var QueueNameExists = class _QueueNameExists extends SQSServiceException {
+      static {
+        __name(this, "QueueNameExists");
+      }
+      name = "QueueNameExists";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "QueueNameExists",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _QueueNameExists.prototype);
+      }
+    };
+    var InvalidIdFormat = class _InvalidIdFormat extends SQSServiceException {
+      static {
+        __name(this, "InvalidIdFormat");
+      }
+      name = "InvalidIdFormat";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "InvalidIdFormat",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _InvalidIdFormat.prototype);
+      }
+    };
+    var PurgeQueueInProgress = class _PurgeQueueInProgress extends SQSServiceException {
+      static {
+        __name(this, "PurgeQueueInProgress");
+      }
+      name = "PurgeQueueInProgress";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "PurgeQueueInProgress",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _PurgeQueueInProgress.prototype);
+      }
+    };
+    var KmsAccessDenied = class _KmsAccessDenied extends SQSServiceException {
+      static {
+        __name(this, "KmsAccessDenied");
+      }
+      name = "KmsAccessDenied";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "KmsAccessDenied",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _KmsAccessDenied.prototype);
+      }
+    };
+    var KmsDisabled = class _KmsDisabled extends SQSServiceException {
+      static {
+        __name(this, "KmsDisabled");
+      }
+      name = "KmsDisabled";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "KmsDisabled",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _KmsDisabled.prototype);
+      }
+    };
+    var KmsInvalidKeyUsage = class _KmsInvalidKeyUsage extends SQSServiceException {
+      static {
+        __name(this, "KmsInvalidKeyUsage");
+      }
+      name = "KmsInvalidKeyUsage";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "KmsInvalidKeyUsage",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _KmsInvalidKeyUsage.prototype);
+      }
+    };
+    var KmsInvalidState = class _KmsInvalidState extends SQSServiceException {
+      static {
+        __name(this, "KmsInvalidState");
+      }
+      name = "KmsInvalidState";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "KmsInvalidState",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _KmsInvalidState.prototype);
+      }
+    };
+    var KmsNotFound = class _KmsNotFound extends SQSServiceException {
+      static {
+        __name(this, "KmsNotFound");
+      }
+      name = "KmsNotFound";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "KmsNotFound",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _KmsNotFound.prototype);
+      }
+    };
+    var KmsOptInRequired = class _KmsOptInRequired extends SQSServiceException {
+      static {
+        __name(this, "KmsOptInRequired");
+      }
+      name = "KmsOptInRequired";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "KmsOptInRequired",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _KmsOptInRequired.prototype);
+      }
+    };
+    var KmsThrottled = class _KmsThrottled extends SQSServiceException {
+      static {
+        __name(this, "KmsThrottled");
+      }
+      name = "KmsThrottled";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "KmsThrottled",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _KmsThrottled.prototype);
+      }
+    };
+    var MessageSystemAttributeName = {
+      AWSTraceHeader: "AWSTraceHeader",
+      All: "All",
+      ApproximateFirstReceiveTimestamp: "ApproximateFirstReceiveTimestamp",
+      ApproximateReceiveCount: "ApproximateReceiveCount",
+      DeadLetterQueueSourceArn: "DeadLetterQueueSourceArn",
+      MessageDeduplicationId: "MessageDeduplicationId",
+      MessageGroupId: "MessageGroupId",
+      SenderId: "SenderId",
+      SentTimestamp: "SentTimestamp",
+      SequenceNumber: "SequenceNumber"
+    };
+    var InvalidMessageContents = class _InvalidMessageContents extends SQSServiceException {
+      static {
+        __name(this, "InvalidMessageContents");
+      }
+      name = "InvalidMessageContents";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "InvalidMessageContents",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _InvalidMessageContents.prototype);
+      }
+    };
+    var MessageSystemAttributeNameForSends = {
+      AWSTraceHeader: "AWSTraceHeader"
+    };
+    var BatchRequestTooLong = class _BatchRequestTooLong extends SQSServiceException {
+      static {
+        __name(this, "BatchRequestTooLong");
+      }
+      name = "BatchRequestTooLong";
+      $fault = "client";
+      /**
+       * @internal
+       */
+      constructor(opts) {
+        super({
+          name: "BatchRequestTooLong",
+          $fault: "client",
+          ...opts
+        });
+        Object.setPrototypeOf(this, _BatchRequestTooLong.prototype);
+      }
+    };
+    var se_AddPermissionCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("AddPermission");
+      let body;
+      body = JSON.stringify(se_AddPermissionRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_AddPermissionCommand");
+    var se_CancelMessageMoveTaskCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("CancelMessageMoveTask");
+      let body;
+      body = JSON.stringify(se_CancelMessageMoveTaskRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_CancelMessageMoveTaskCommand");
+    var se_ChangeMessageVisibilityCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("ChangeMessageVisibility");
+      let body;
+      body = JSON.stringify(se_ChangeMessageVisibilityRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_ChangeMessageVisibilityCommand");
+    var se_ChangeMessageVisibilityBatchCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("ChangeMessageVisibilityBatch");
+      let body;
+      body = JSON.stringify(se_ChangeMessageVisibilityBatchRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_ChangeMessageVisibilityBatchCommand");
+    var se_CreateQueueCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("CreateQueue");
+      let body;
+      body = JSON.stringify(se_CreateQueueRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_CreateQueueCommand");
+    var se_DeleteMessageCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("DeleteMessage");
+      let body;
+      body = JSON.stringify(se_DeleteMessageRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_DeleteMessageCommand");
+    var se_DeleteMessageBatchCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("DeleteMessageBatch");
+      let body;
+      body = JSON.stringify(se_DeleteMessageBatchRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_DeleteMessageBatchCommand");
+    var se_DeleteQueueCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("DeleteQueue");
+      let body;
+      body = JSON.stringify(se_DeleteQueueRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_DeleteQueueCommand");
+    var se_GetQueueAttributesCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("GetQueueAttributes");
+      let body;
+      body = JSON.stringify(se_GetQueueAttributesRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_GetQueueAttributesCommand");
+    var se_GetQueueUrlCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("GetQueueUrl");
+      let body;
+      body = JSON.stringify(se_GetQueueUrlRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_GetQueueUrlCommand");
+    var se_ListDeadLetterSourceQueuesCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("ListDeadLetterSourceQueues");
+      let body;
+      body = JSON.stringify(se_ListDeadLetterSourceQueuesRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_ListDeadLetterSourceQueuesCommand");
+    var se_ListMessageMoveTasksCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("ListMessageMoveTasks");
+      let body;
+      body = JSON.stringify(se_ListMessageMoveTasksRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_ListMessageMoveTasksCommand");
+    var se_ListQueuesCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("ListQueues");
+      let body;
+      body = JSON.stringify(se_ListQueuesRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_ListQueuesCommand");
+    var se_ListQueueTagsCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("ListQueueTags");
+      let body;
+      body = JSON.stringify(se_ListQueueTagsRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_ListQueueTagsCommand");
+    var se_PurgeQueueCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("PurgeQueue");
+      let body;
+      body = JSON.stringify(se_PurgeQueueRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_PurgeQueueCommand");
+    var se_ReceiveMessageCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("ReceiveMessage");
+      let body;
+      body = JSON.stringify(se_ReceiveMessageRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_ReceiveMessageCommand");
+    var se_RemovePermissionCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("RemovePermission");
+      let body;
+      body = JSON.stringify(se_RemovePermissionRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_RemovePermissionCommand");
+    var se_SendMessageCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("SendMessage");
+      let body;
+      body = JSON.stringify(se_SendMessageRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_SendMessageCommand");
+    var se_SendMessageBatchCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("SendMessageBatch");
+      let body;
+      body = JSON.stringify(se_SendMessageBatchRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_SendMessageBatchCommand");
+    var se_SetQueueAttributesCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("SetQueueAttributes");
+      let body;
+      body = JSON.stringify(se_SetQueueAttributesRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_SetQueueAttributesCommand");
+    var se_StartMessageMoveTaskCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("StartMessageMoveTask");
+      let body;
+      body = JSON.stringify(se_StartMessageMoveTaskRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_StartMessageMoveTaskCommand");
+    var se_TagQueueCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("TagQueue");
+      let body;
+      body = JSON.stringify(se_TagQueueRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_TagQueueCommand");
+    var se_UntagQueueCommand = /* @__PURE__ */ __name(async (input, context) => {
+      const headers = sharedHeaders("UntagQueue");
+      let body;
+      body = JSON.stringify(se_UntagQueueRequest(input, context));
+      return buildHttpRpcRequest2(context, headers, "/", void 0, body);
+    }, "se_UntagQueueCommand");
+    var de_AddPermissionCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      await (0, import_smithy_client28.collectBody)(output.body, context);
+      const response = {
+        $metadata: deserializeMetadata3(output)
+      };
+      return response;
+    }, "de_AddPermissionCommand");
+    var de_CancelMessageMoveTaskCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = (0, import_smithy_client28._json)(data2);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_CancelMessageMoveTaskCommand");
+    var de_ChangeMessageVisibilityCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      await (0, import_smithy_client28.collectBody)(output.body, context);
+      const response = {
+        $metadata: deserializeMetadata3(output)
+      };
+      return response;
+    }, "de_ChangeMessageVisibilityCommand");
+    var de_ChangeMessageVisibilityBatchCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = (0, import_smithy_client28._json)(data2);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_ChangeMessageVisibilityBatchCommand");
+    var de_CreateQueueCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = (0, import_smithy_client28._json)(data2);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_CreateQueueCommand");
+    var de_DeleteMessageCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      await (0, import_smithy_client28.collectBody)(output.body, context);
+      const response = {
+        $metadata: deserializeMetadata3(output)
+      };
+      return response;
+    }, "de_DeleteMessageCommand");
+    var de_DeleteMessageBatchCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = (0, import_smithy_client28._json)(data2);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_DeleteMessageBatchCommand");
+    var de_DeleteQueueCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      await (0, import_smithy_client28.collectBody)(output.body, context);
+      const response = {
+        $metadata: deserializeMetadata3(output)
+      };
+      return response;
+    }, "de_DeleteQueueCommand");
+    var de_GetQueueAttributesCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = (0, import_smithy_client28._json)(data2);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_GetQueueAttributesCommand");
+    var de_GetQueueUrlCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = (0, import_smithy_client28._json)(data2);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_GetQueueUrlCommand");
+    var de_ListDeadLetterSourceQueuesCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = (0, import_smithy_client28._json)(data2);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_ListDeadLetterSourceQueuesCommand");
+    var de_ListMessageMoveTasksCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = (0, import_smithy_client28._json)(data2);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_ListMessageMoveTasksCommand");
+    var de_ListQueuesCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = (0, import_smithy_client28._json)(data2);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_ListQueuesCommand");
+    var de_ListQueueTagsCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = (0, import_smithy_client28._json)(data2);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_ListQueueTagsCommand");
+    var de_PurgeQueueCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      await (0, import_smithy_client28.collectBody)(output.body, context);
+      const response = {
+        $metadata: deserializeMetadata3(output)
+      };
+      return response;
+    }, "de_PurgeQueueCommand");
+    var de_ReceiveMessageCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = de_ReceiveMessageResult(data2, context);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_ReceiveMessageCommand");
+    var de_RemovePermissionCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      await (0, import_smithy_client28.collectBody)(output.body, context);
+      const response = {
+        $metadata: deserializeMetadata3(output)
+      };
+      return response;
+    }, "de_RemovePermissionCommand");
+    var de_SendMessageCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = (0, import_smithy_client28._json)(data2);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_SendMessageCommand");
+    var de_SendMessageBatchCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = (0, import_smithy_client28._json)(data2);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_SendMessageBatchCommand");
+    var de_SetQueueAttributesCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      await (0, import_smithy_client28.collectBody)(output.body, context);
+      const response = {
+        $metadata: deserializeMetadata3(output)
+      };
+      return response;
+    }, "de_SetQueueAttributesCommand");
+    var de_StartMessageMoveTaskCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      const data2 = await (0, import_core22.parseJsonBody)(output.body, context);
+      let contents = {};
+      contents = (0, import_smithy_client28._json)(data2);
+      const response = {
+        $metadata: deserializeMetadata3(output),
+        ...contents
+      };
+      return response;
+    }, "de_StartMessageMoveTaskCommand");
+    var de_TagQueueCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      await (0, import_smithy_client28.collectBody)(output.body, context);
+      const response = {
+        $metadata: deserializeMetadata3(output)
+      };
+      return response;
+    }, "de_TagQueueCommand");
+    var de_UntagQueueCommand = /* @__PURE__ */ __name(async (output, context) => {
+      if (output.statusCode >= 300) {
+        return de_CommandError3(output, context);
+      }
+      await (0, import_smithy_client28.collectBody)(output.body, context);
+      const response = {
+        $metadata: deserializeMetadata3(output)
+      };
+      return response;
+    }, "de_UntagQueueCommand");
+    var de_CommandError3 = /* @__PURE__ */ __name(async (output, context) => {
+      const parsedOutput = {
+        ...output,
+        body: await (0, import_core22.parseJsonErrorBody)(output.body, context)
+      };
+      populateBodyWithQueryCompatibility(parsedOutput, output.headers);
+      const errorCode = (0, import_core22.loadRestJsonErrorCode)(output, parsedOutput.body);
+      switch (errorCode) {
+        case "InvalidAddress":
+        case "com.amazonaws.sqs#InvalidAddress":
+          throw await de_InvalidAddressRes(parsedOutput, context);
+        case "InvalidSecurity":
+        case "com.amazonaws.sqs#InvalidSecurity":
+          throw await de_InvalidSecurityRes(parsedOutput, context);
+        case "OverLimit":
+        case "com.amazonaws.sqs#OverLimit":
+          throw await de_OverLimitRes(parsedOutput, context);
+        case "QueueDoesNotExist":
+        case "com.amazonaws.sqs#QueueDoesNotExist":
+        case "AWS.SimpleQueueService.NonExistentQueue":
+          throw await de_QueueDoesNotExistRes(parsedOutput, context);
+        case "RequestThrottled":
+        case "com.amazonaws.sqs#RequestThrottled":
+          throw await de_RequestThrottledRes(parsedOutput, context);
+        case "UnsupportedOperation":
+        case "com.amazonaws.sqs#UnsupportedOperation":
+        case "AWS.SimpleQueueService.UnsupportedOperation":
+          throw await de_UnsupportedOperationRes(parsedOutput, context);
+        case "ResourceNotFoundException":
+        case "com.amazonaws.sqs#ResourceNotFoundException":
+          throw await de_ResourceNotFoundExceptionRes(parsedOutput, context);
+        case "MessageNotInflight":
+        case "com.amazonaws.sqs#MessageNotInflight":
+        case "AWS.SimpleQueueService.MessageNotInflight":
+          throw await de_MessageNotInflightRes(parsedOutput, context);
+        case "ReceiptHandleIsInvalid":
+        case "com.amazonaws.sqs#ReceiptHandleIsInvalid":
+          throw await de_ReceiptHandleIsInvalidRes(parsedOutput, context);
+        case "BatchEntryIdsNotDistinct":
+        case "com.amazonaws.sqs#BatchEntryIdsNotDistinct":
+        case "AWS.SimpleQueueService.BatchEntryIdsNotDistinct":
+          throw await de_BatchEntryIdsNotDistinctRes(parsedOutput, context);
+        case "EmptyBatchRequest":
+        case "com.amazonaws.sqs#EmptyBatchRequest":
+        case "AWS.SimpleQueueService.EmptyBatchRequest":
+          throw await de_EmptyBatchRequestRes(parsedOutput, context);
+        case "InvalidBatchEntryId":
+        case "com.amazonaws.sqs#InvalidBatchEntryId":
+        case "AWS.SimpleQueueService.InvalidBatchEntryId":
+          throw await de_InvalidBatchEntryIdRes(parsedOutput, context);
+        case "TooManyEntriesInBatchRequest":
+        case "com.amazonaws.sqs#TooManyEntriesInBatchRequest":
+        case "AWS.SimpleQueueService.TooManyEntriesInBatchRequest":
+          throw await de_TooManyEntriesInBatchRequestRes(parsedOutput, context);
+        case "InvalidAttributeName":
+        case "com.amazonaws.sqs#InvalidAttributeName":
+          throw await de_InvalidAttributeNameRes(parsedOutput, context);
+        case "InvalidAttributeValue":
+        case "com.amazonaws.sqs#InvalidAttributeValue":
+          throw await de_InvalidAttributeValueRes(parsedOutput, context);
+        case "QueueDeletedRecently":
+        case "com.amazonaws.sqs#QueueDeletedRecently":
+        case "AWS.SimpleQueueService.QueueDeletedRecently":
+          throw await de_QueueDeletedRecentlyRes(parsedOutput, context);
+        case "QueueNameExists":
+        case "com.amazonaws.sqs#QueueNameExists":
+        case "QueueAlreadyExists":
+          throw await de_QueueNameExistsRes(parsedOutput, context);
+        case "InvalidIdFormat":
+        case "com.amazonaws.sqs#InvalidIdFormat":
+          throw await de_InvalidIdFormatRes(parsedOutput, context);
+        case "PurgeQueueInProgress":
+        case "com.amazonaws.sqs#PurgeQueueInProgress":
+        case "AWS.SimpleQueueService.PurgeQueueInProgress":
+          throw await de_PurgeQueueInProgressRes(parsedOutput, context);
+        case "KmsAccessDenied":
+        case "com.amazonaws.sqs#KmsAccessDenied":
+        case "KMS.AccessDeniedException":
+          throw await de_KmsAccessDeniedRes(parsedOutput, context);
+        case "KmsDisabled":
+        case "com.amazonaws.sqs#KmsDisabled":
+        case "KMS.DisabledException":
+          throw await de_KmsDisabledRes(parsedOutput, context);
+        case "KmsInvalidKeyUsage":
+        case "com.amazonaws.sqs#KmsInvalidKeyUsage":
+        case "KMS.InvalidKeyUsageException":
+          throw await de_KmsInvalidKeyUsageRes(parsedOutput, context);
+        case "KmsInvalidState":
+        case "com.amazonaws.sqs#KmsInvalidState":
+        case "KMS.InvalidStateException":
+          throw await de_KmsInvalidStateRes(parsedOutput, context);
+        case "KmsNotFound":
+        case "com.amazonaws.sqs#KmsNotFound":
+        case "KMS.NotFoundException":
+          throw await de_KmsNotFoundRes(parsedOutput, context);
+        case "KmsOptInRequired":
+        case "com.amazonaws.sqs#KmsOptInRequired":
+        case "KMS.OptInRequired":
+          throw await de_KmsOptInRequiredRes(parsedOutput, context);
+        case "KmsThrottled":
+        case "com.amazonaws.sqs#KmsThrottled":
+        case "KMS.ThrottlingException":
+          throw await de_KmsThrottledRes(parsedOutput, context);
+        case "InvalidMessageContents":
+        case "com.amazonaws.sqs#InvalidMessageContents":
+          throw await de_InvalidMessageContentsRes(parsedOutput, context);
+        case "BatchRequestTooLong":
+        case "com.amazonaws.sqs#BatchRequestTooLong":
+        case "AWS.SimpleQueueService.BatchRequestTooLong":
+          throw await de_BatchRequestTooLongRes(parsedOutput, context);
+        default:
+          const parsedBody = parsedOutput.body;
+          return throwDefaultError3({
+            output,
+            parsedBody,
+            errorCode
+          });
+      }
+    }, "de_CommandError");
+    var de_BatchEntryIdsNotDistinctRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new BatchEntryIdsNotDistinct({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_BatchEntryIdsNotDistinctRes");
+    var de_BatchRequestTooLongRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new BatchRequestTooLong({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_BatchRequestTooLongRes");
+    var de_EmptyBatchRequestRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new EmptyBatchRequest({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_EmptyBatchRequestRes");
+    var de_InvalidAddressRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new InvalidAddress({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_InvalidAddressRes");
+    var de_InvalidAttributeNameRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new InvalidAttributeName({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_InvalidAttributeNameRes");
+    var de_InvalidAttributeValueRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new InvalidAttributeValue({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_InvalidAttributeValueRes");
+    var de_InvalidBatchEntryIdRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new InvalidBatchEntryId({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_InvalidBatchEntryIdRes");
+    var de_InvalidIdFormatRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new InvalidIdFormat({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_InvalidIdFormatRes");
+    var de_InvalidMessageContentsRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new InvalidMessageContents({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_InvalidMessageContentsRes");
+    var de_InvalidSecurityRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new InvalidSecurity({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_InvalidSecurityRes");
+    var de_KmsAccessDeniedRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new KmsAccessDenied({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_KmsAccessDeniedRes");
+    var de_KmsDisabledRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new KmsDisabled({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_KmsDisabledRes");
+    var de_KmsInvalidKeyUsageRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new KmsInvalidKeyUsage({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_KmsInvalidKeyUsageRes");
+    var de_KmsInvalidStateRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new KmsInvalidState({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_KmsInvalidStateRes");
+    var de_KmsNotFoundRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new KmsNotFound({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_KmsNotFoundRes");
+    var de_KmsOptInRequiredRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new KmsOptInRequired({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_KmsOptInRequiredRes");
+    var de_KmsThrottledRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new KmsThrottled({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_KmsThrottledRes");
+    var de_MessageNotInflightRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new MessageNotInflight({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_MessageNotInflightRes");
+    var de_OverLimitRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new OverLimit({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_OverLimitRes");
+    var de_PurgeQueueInProgressRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new PurgeQueueInProgress({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_PurgeQueueInProgressRes");
+    var de_QueueDeletedRecentlyRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new QueueDeletedRecently({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_QueueDeletedRecentlyRes");
+    var de_QueueDoesNotExistRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new QueueDoesNotExist({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_QueueDoesNotExistRes");
+    var de_QueueNameExistsRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new QueueNameExists({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_QueueNameExistsRes");
+    var de_ReceiptHandleIsInvalidRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new ReceiptHandleIsInvalid({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_ReceiptHandleIsInvalidRes");
+    var de_RequestThrottledRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new RequestThrottled({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_RequestThrottledRes");
+    var de_ResourceNotFoundExceptionRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new ResourceNotFoundException({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_ResourceNotFoundExceptionRes");
+    var de_TooManyEntriesInBatchRequestRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new TooManyEntriesInBatchRequest({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_TooManyEntriesInBatchRequestRes");
+    var de_UnsupportedOperationRes = /* @__PURE__ */ __name(async (parsedOutput, context) => {
+      const body = parsedOutput.body;
+      const deserialized = (0, import_smithy_client28._json)(body);
+      const exception = new UnsupportedOperation({
+        $metadata: deserializeMetadata3(parsedOutput),
+        ...deserialized
+      });
+      return (0, import_smithy_client28.decorateServiceException)(exception, body);
+    }, "de_UnsupportedOperationRes");
+    var se_ActionNameList = /* @__PURE__ */ __name((input, context) => {
+      return input.filter((e3) => e3 != null).map((entry) => {
+        return (0, import_core22._toStr)(entry);
+      });
+    }, "se_ActionNameList");
+    var se_AddPermissionRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        AWSAccountIds: /* @__PURE__ */ __name((_2) => se_AWSAccountIdList(_2, context), "AWSAccountIds"),
+        Actions: /* @__PURE__ */ __name((_2) => se_ActionNameList(_2, context), "Actions"),
+        Label: import_core22._toStr,
+        QueueUrl: import_core22._toStr
+      });
+    }, "se_AddPermissionRequest");
+    var se_AttributeNameList = /* @__PURE__ */ __name((input, context) => {
+      return input.filter((e3) => e3 != null).map((entry) => {
+        return (0, import_core22._toStr)(entry);
+      });
+    }, "se_AttributeNameList");
+    var se_AWSAccountIdList = /* @__PURE__ */ __name((input, context) => {
+      return input.filter((e3) => e3 != null).map((entry) => {
+        return (0, import_core22._toStr)(entry);
+      });
+    }, "se_AWSAccountIdList");
+    var se_BinaryList = /* @__PURE__ */ __name((input, context) => {
+      return input.filter((e3) => e3 != null).map((entry) => {
+        return context.base64Encoder(entry);
+      });
+    }, "se_BinaryList");
+    var se_CancelMessageMoveTaskRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        TaskHandle: import_core22._toStr
+      });
+    }, "se_CancelMessageMoveTaskRequest");
+    var se_ChangeMessageVisibilityBatchRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        Entries: /* @__PURE__ */ __name((_2) => se_ChangeMessageVisibilityBatchRequestEntryList(_2, context), "Entries"),
+        QueueUrl: import_core22._toStr
+      });
+    }, "se_ChangeMessageVisibilityBatchRequest");
+    var se_ChangeMessageVisibilityBatchRequestEntry = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        Id: import_core22._toStr,
+        ReceiptHandle: import_core22._toStr,
+        VisibilityTimeout: import_core22._toNum
+      });
+    }, "se_ChangeMessageVisibilityBatchRequestEntry");
+    var se_ChangeMessageVisibilityBatchRequestEntryList = /* @__PURE__ */ __name((input, context) => {
+      return input.filter((e3) => e3 != null).map((entry) => {
+        return se_ChangeMessageVisibilityBatchRequestEntry(entry, context);
+      });
+    }, "se_ChangeMessageVisibilityBatchRequestEntryList");
+    var se_ChangeMessageVisibilityRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        QueueUrl: import_core22._toStr,
+        ReceiptHandle: import_core22._toStr,
+        VisibilityTimeout: import_core22._toNum
+      });
+    }, "se_ChangeMessageVisibilityRequest");
+    var se_CreateQueueRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        Attributes: /* @__PURE__ */ __name((_2) => se_QueueAttributeMap(_2, context), "Attributes"),
+        QueueName: import_core22._toStr,
+        tags: /* @__PURE__ */ __name((_2) => se_TagMap(_2, context), "tags")
+      });
+    }, "se_CreateQueueRequest");
+    var se_DeleteMessageBatchRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        Entries: /* @__PURE__ */ __name((_2) => se_DeleteMessageBatchRequestEntryList(_2, context), "Entries"),
+        QueueUrl: import_core22._toStr
+      });
+    }, "se_DeleteMessageBatchRequest");
+    var se_DeleteMessageBatchRequestEntry = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        Id: import_core22._toStr,
+        ReceiptHandle: import_core22._toStr
+      });
+    }, "se_DeleteMessageBatchRequestEntry");
+    var se_DeleteMessageBatchRequestEntryList = /* @__PURE__ */ __name((input, context) => {
+      return input.filter((e3) => e3 != null).map((entry) => {
+        return se_DeleteMessageBatchRequestEntry(entry, context);
+      });
+    }, "se_DeleteMessageBatchRequestEntryList");
+    var se_DeleteMessageRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        QueueUrl: import_core22._toStr,
+        ReceiptHandle: import_core22._toStr
+      });
+    }, "se_DeleteMessageRequest");
+    var se_DeleteQueueRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        QueueUrl: import_core22._toStr
+      });
+    }, "se_DeleteQueueRequest");
+    var se_GetQueueAttributesRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        AttributeNames: /* @__PURE__ */ __name((_2) => se_AttributeNameList(_2, context), "AttributeNames"),
+        QueueUrl: import_core22._toStr
+      });
+    }, "se_GetQueueAttributesRequest");
+    var se_GetQueueUrlRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        QueueName: import_core22._toStr,
+        QueueOwnerAWSAccountId: import_core22._toStr
+      });
+    }, "se_GetQueueUrlRequest");
+    var se_ListDeadLetterSourceQueuesRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        MaxResults: import_core22._toNum,
+        NextToken: import_core22._toStr,
+        QueueUrl: import_core22._toStr
+      });
+    }, "se_ListDeadLetterSourceQueuesRequest");
+    var se_ListMessageMoveTasksRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        MaxResults: import_core22._toNum,
+        SourceArn: import_core22._toStr
+      });
+    }, "se_ListMessageMoveTasksRequest");
+    var se_ListQueuesRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        MaxResults: import_core22._toNum,
+        NextToken: import_core22._toStr,
+        QueueNamePrefix: import_core22._toStr
+      });
+    }, "se_ListQueuesRequest");
+    var se_ListQueueTagsRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        QueueUrl: import_core22._toStr
+      });
+    }, "se_ListQueueTagsRequest");
+    var se_MessageAttributeNameList = /* @__PURE__ */ __name((input, context) => {
+      return input.filter((e3) => e3 != null).map((entry) => {
+        return (0, import_core22._toStr)(entry);
+      });
+    }, "se_MessageAttributeNameList");
+    var se_MessageAttributeValue = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        BinaryListValues: /* @__PURE__ */ __name((_2) => se_BinaryList(_2, context), "BinaryListValues"),
+        BinaryValue: context.base64Encoder,
+        DataType: import_core22._toStr,
+        StringListValues: /* @__PURE__ */ __name((_2) => se_StringList(_2, context), "StringListValues"),
+        StringValue: import_core22._toStr
+      });
+    }, "se_MessageAttributeValue");
+    var se_MessageBodyAttributeMap = /* @__PURE__ */ __name((input, context) => {
+      return Object.entries(input).reduce((acc, [key, value]) => {
+        if (value === null) {
+          return acc;
+        }
+        acc[key] = se_MessageAttributeValue(value, context);
+        return acc;
+      }, {});
+    }, "se_MessageBodyAttributeMap");
+    var se_MessageBodySystemAttributeMap = /* @__PURE__ */ __name((input, context) => {
+      return Object.entries(input).reduce(
+        (acc, [key, value]) => {
+          if (value === null) {
+            return acc;
+          }
+          acc[key] = se_MessageSystemAttributeValue(value, context);
+          return acc;
+        },
+        {}
+      );
+    }, "se_MessageBodySystemAttributeMap");
+    var se_MessageSystemAttributeList = /* @__PURE__ */ __name((input, context) => {
+      return input.filter((e3) => e3 != null).map((entry) => {
+        return (0, import_core22._toStr)(entry);
+      });
+    }, "se_MessageSystemAttributeList");
+    var se_MessageSystemAttributeValue = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        BinaryListValues: /* @__PURE__ */ __name((_2) => se_BinaryList(_2, context), "BinaryListValues"),
+        BinaryValue: context.base64Encoder,
+        DataType: import_core22._toStr,
+        StringListValues: /* @__PURE__ */ __name((_2) => se_StringList(_2, context), "StringListValues"),
+        StringValue: import_core22._toStr
+      });
+    }, "se_MessageSystemAttributeValue");
+    var se_PurgeQueueRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        QueueUrl: import_core22._toStr
+      });
+    }, "se_PurgeQueueRequest");
+    var se_QueueAttributeMap = /* @__PURE__ */ __name((input, context) => {
+      return Object.entries(input).reduce((acc, [key, value]) => {
+        if (value === null) {
+          return acc;
+        }
+        acc[key] = (0, import_core22._toStr)(value);
+        return acc;
+      }, {});
+    }, "se_QueueAttributeMap");
+    var se_ReceiveMessageRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        AttributeNames: /* @__PURE__ */ __name((_2) => se_AttributeNameList(_2, context), "AttributeNames"),
+        MaxNumberOfMessages: import_core22._toNum,
+        MessageAttributeNames: /* @__PURE__ */ __name((_2) => se_MessageAttributeNameList(_2, context), "MessageAttributeNames"),
+        MessageSystemAttributeNames: /* @__PURE__ */ __name((_2) => se_MessageSystemAttributeList(_2, context), "MessageSystemAttributeNames"),
+        QueueUrl: import_core22._toStr,
+        ReceiveRequestAttemptId: import_core22._toStr,
+        VisibilityTimeout: import_core22._toNum,
+        WaitTimeSeconds: import_core22._toNum
+      });
+    }, "se_ReceiveMessageRequest");
+    var se_RemovePermissionRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        Label: import_core22._toStr,
+        QueueUrl: import_core22._toStr
+      });
+    }, "se_RemovePermissionRequest");
+    var se_SendMessageBatchRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        Entries: /* @__PURE__ */ __name((_2) => se_SendMessageBatchRequestEntryList(_2, context), "Entries"),
+        QueueUrl: import_core22._toStr
+      });
+    }, "se_SendMessageBatchRequest");
+    var se_SendMessageBatchRequestEntry = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        DelaySeconds: import_core22._toNum,
+        Id: import_core22._toStr,
+        MessageAttributes: /* @__PURE__ */ __name((_2) => se_MessageBodyAttributeMap(_2, context), "MessageAttributes"),
+        MessageBody: import_core22._toStr,
+        MessageDeduplicationId: import_core22._toStr,
+        MessageGroupId: import_core22._toStr,
+        MessageSystemAttributes: /* @__PURE__ */ __name((_2) => se_MessageBodySystemAttributeMap(_2, context), "MessageSystemAttributes")
+      });
+    }, "se_SendMessageBatchRequestEntry");
+    var se_SendMessageBatchRequestEntryList = /* @__PURE__ */ __name((input, context) => {
+      return input.filter((e3) => e3 != null).map((entry) => {
+        return se_SendMessageBatchRequestEntry(entry, context);
+      });
+    }, "se_SendMessageBatchRequestEntryList");
+    var se_SendMessageRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        DelaySeconds: import_core22._toNum,
+        MessageAttributes: /* @__PURE__ */ __name((_2) => se_MessageBodyAttributeMap(_2, context), "MessageAttributes"),
+        MessageBody: import_core22._toStr,
+        MessageDeduplicationId: import_core22._toStr,
+        MessageGroupId: import_core22._toStr,
+        MessageSystemAttributes: /* @__PURE__ */ __name((_2) => se_MessageBodySystemAttributeMap(_2, context), "MessageSystemAttributes"),
+        QueueUrl: import_core22._toStr
+      });
+    }, "se_SendMessageRequest");
+    var se_SetQueueAttributesRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        Attributes: /* @__PURE__ */ __name((_2) => se_QueueAttributeMap(_2, context), "Attributes"),
+        QueueUrl: import_core22._toStr
+      });
+    }, "se_SetQueueAttributesRequest");
+    var se_StartMessageMoveTaskRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        DestinationArn: import_core22._toStr,
+        MaxNumberOfMessagesPerSecond: import_core22._toNum,
+        SourceArn: import_core22._toStr
+      });
+    }, "se_StartMessageMoveTaskRequest");
+    var se_StringList = /* @__PURE__ */ __name((input, context) => {
+      return input.filter((e3) => e3 != null).map((entry) => {
+        return (0, import_core22._toStr)(entry);
+      });
+    }, "se_StringList");
+    var se_TagKeyList = /* @__PURE__ */ __name((input, context) => {
+      return input.filter((e3) => e3 != null).map((entry) => {
+        return (0, import_core22._toStr)(entry);
+      });
+    }, "se_TagKeyList");
+    var se_TagMap = /* @__PURE__ */ __name((input, context) => {
+      return Object.entries(input).reduce((acc, [key, value]) => {
+        if (value === null) {
+          return acc;
+        }
+        acc[key] = (0, import_core22._toStr)(value);
+        return acc;
+      }, {});
+    }, "se_TagMap");
+    var se_TagQueueRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        QueueUrl: import_core22._toStr,
+        Tags: /* @__PURE__ */ __name((_2) => se_TagMap(_2, context), "Tags")
+      });
+    }, "se_TagQueueRequest");
+    var se_UntagQueueRequest = /* @__PURE__ */ __name((input, context) => {
+      return (0, import_smithy_client28.take)(input, {
+        QueueUrl: import_core22._toStr,
+        TagKeys: /* @__PURE__ */ __name((_2) => se_TagKeyList(_2, context), "TagKeys")
+      });
+    }, "se_UntagQueueRequest");
+    var de_BinaryList = /* @__PURE__ */ __name((output, context) => {
+      const retVal = (output || []).filter((e3) => e3 != null).map((entry) => {
+        return context.base64Decoder(entry);
+      });
+      return retVal;
+    }, "de_BinaryList");
+    var de_Message = /* @__PURE__ */ __name((output, context) => {
+      return (0, import_smithy_client28.take)(output, {
+        Attributes: import_smithy_client28._json,
+        Body: import_smithy_client28.expectString,
+        MD5OfBody: import_smithy_client28.expectString,
+        MD5OfMessageAttributes: import_smithy_client28.expectString,
+        MessageAttributes: /* @__PURE__ */ __name((_2) => de_MessageBodyAttributeMap(_2, context), "MessageAttributes"),
+        MessageId: import_smithy_client28.expectString,
+        ReceiptHandle: import_smithy_client28.expectString
+      });
+    }, "de_Message");
+    var de_MessageAttributeValue = /* @__PURE__ */ __name((output, context) => {
+      return (0, import_smithy_client28.take)(output, {
+        BinaryListValues: /* @__PURE__ */ __name((_2) => de_BinaryList(_2, context), "BinaryListValues"),
+        BinaryValue: context.base64Decoder,
+        DataType: import_smithy_client28.expectString,
+        StringListValues: import_smithy_client28._json,
+        StringValue: import_smithy_client28.expectString
+      });
+    }, "de_MessageAttributeValue");
+    var de_MessageBodyAttributeMap = /* @__PURE__ */ __name((output, context) => {
+      return Object.entries(output).reduce((acc, [key, value]) => {
+        if (value === null) {
+          return acc;
+        }
+        acc[key] = de_MessageAttributeValue(value, context);
+        return acc;
+      }, {});
+    }, "de_MessageBodyAttributeMap");
+    var de_MessageList = /* @__PURE__ */ __name((output, context) => {
+      const retVal = (output || []).filter((e3) => e3 != null).map((entry) => {
+        return de_Message(entry, context);
+      });
+      return retVal;
+    }, "de_MessageList");
+    var de_ReceiveMessageResult = /* @__PURE__ */ __name((output, context) => {
+      return (0, import_smithy_client28.take)(output, {
+        Messages: /* @__PURE__ */ __name((_2) => de_MessageList(_2, context), "Messages")
+      });
+    }, "de_ReceiveMessageResult");
+    var deserializeMetadata3 = /* @__PURE__ */ __name((output) => ({
+      httpStatusCode: output.statusCode,
+      requestId: output.headers["x-amzn-requestid"] ?? output.headers["x-amzn-request-id"] ?? output.headers["x-amz-request-id"],
+      extendedRequestId: output.headers["x-amz-id-2"],
+      cfId: output.headers["x-amz-cf-id"]
+    }), "deserializeMetadata");
+    var throwDefaultError3 = (0, import_smithy_client28.withBaseException)(SQSServiceException);
+    var buildHttpRpcRequest2 = /* @__PURE__ */ __name(async (context, headers, path, resolvedHostname, body) => {
+      const { hostname, protocol = "https", port, path: basePath } = await context.endpoint();
+      const contents = {
+        protocol,
+        hostname,
+        port,
+        method: "POST",
+        path: basePath.endsWith("/") ? basePath.slice(0, -1) + path : basePath + path,
+        headers
+      };
+      if (resolvedHostname !== void 0) {
+        contents.hostname = resolvedHostname;
+      }
+      if (body !== void 0) {
+        contents.body = body;
+      }
+      return new import_protocol_http15.HttpRequest(contents);
+    }, "buildHttpRpcRequest");
+    function sharedHeaders(operation) {
+      return {
+        "content-type": "application/x-amz-json-1.0",
+        "x-amz-target": `AmazonSQS.${operation}`,
+        "x-amzn-query-mode": "true"
+      };
+    }
+    __name(sharedHeaders, "sharedHeaders");
+    var populateBodyWithQueryCompatibility = /* @__PURE__ */ __name((parsedOutput, headers) => {
+      const queryErrorHeader = headers["x-amzn-query-error"];
+      if (parsedOutput.body !== void 0 && queryErrorHeader != null) {
+        const [Code, Type] = queryErrorHeader.split(";");
+        const entries = Object.entries(parsedOutput.body);
+        const Error2 = {
+          Type,
+          Code
+        };
+        Object.assign(parsedOutput.body, Error2);
+        for (const [k3, v6] of entries) {
+          Error2[k3] = v6;
+        }
+        delete Error2.__type;
+        parsedOutput.body.Error = Error2;
+      }
+    }, "populateBodyWithQueryCompatibility");
+    var AddPermissionCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "AddPermission", {}).n("SQSClient", "AddPermissionCommand").f(void 0, void 0).ser(se_AddPermissionCommand).de(de_AddPermissionCommand).build() {
+      static {
+        __name(this, "AddPermissionCommand");
+      }
+    };
+    var CancelMessageMoveTaskCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "CancelMessageMoveTask", {}).n("SQSClient", "CancelMessageMoveTaskCommand").f(void 0, void 0).ser(se_CancelMessageMoveTaskCommand).de(de_CancelMessageMoveTaskCommand).build() {
+      static {
+        __name(this, "CancelMessageMoveTaskCommand");
+      }
+    };
+    var ChangeMessageVisibilityBatchCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "ChangeMessageVisibilityBatch", {}).n("SQSClient", "ChangeMessageVisibilityBatchCommand").f(void 0, void 0).ser(se_ChangeMessageVisibilityBatchCommand).de(de_ChangeMessageVisibilityBatchCommand).build() {
+      static {
+        __name(this, "ChangeMessageVisibilityBatchCommand");
+      }
+    };
+    var ChangeMessageVisibilityCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "ChangeMessageVisibility", {}).n("SQSClient", "ChangeMessageVisibilityCommand").f(void 0, void 0).ser(se_ChangeMessageVisibilityCommand).de(de_ChangeMessageVisibilityCommand).build() {
+      static {
+        __name(this, "ChangeMessageVisibilityCommand");
+      }
+    };
+    var CreateQueueCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "CreateQueue", {}).n("SQSClient", "CreateQueueCommand").f(void 0, void 0).ser(se_CreateQueueCommand).de(de_CreateQueueCommand).build() {
+      static {
+        __name(this, "CreateQueueCommand");
+      }
+    };
+    var DeleteMessageBatchCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "DeleteMessageBatch", {}).n("SQSClient", "DeleteMessageBatchCommand").f(void 0, void 0).ser(se_DeleteMessageBatchCommand).de(de_DeleteMessageBatchCommand).build() {
+      static {
+        __name(this, "DeleteMessageBatchCommand");
+      }
+    };
+    var DeleteMessageCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "DeleteMessage", {}).n("SQSClient", "DeleteMessageCommand").f(void 0, void 0).ser(se_DeleteMessageCommand).de(de_DeleteMessageCommand).build() {
+      static {
+        __name(this, "DeleteMessageCommand");
+      }
+    };
+    var DeleteQueueCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "DeleteQueue", {}).n("SQSClient", "DeleteQueueCommand").f(void 0, void 0).ser(se_DeleteQueueCommand).de(de_DeleteQueueCommand).build() {
+      static {
+        __name(this, "DeleteQueueCommand");
+      }
+    };
+    var GetQueueAttributesCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "GetQueueAttributes", {}).n("SQSClient", "GetQueueAttributesCommand").f(void 0, void 0).ser(se_GetQueueAttributesCommand).de(de_GetQueueAttributesCommand).build() {
+      static {
+        __name(this, "GetQueueAttributesCommand");
+      }
+    };
+    var GetQueueUrlCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "GetQueueUrl", {}).n("SQSClient", "GetQueueUrlCommand").f(void 0, void 0).ser(se_GetQueueUrlCommand).de(de_GetQueueUrlCommand).build() {
+      static {
+        __name(this, "GetQueueUrlCommand");
+      }
+    };
+    var ListDeadLetterSourceQueuesCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "ListDeadLetterSourceQueues", {}).n("SQSClient", "ListDeadLetterSourceQueuesCommand").f(void 0, void 0).ser(se_ListDeadLetterSourceQueuesCommand).de(de_ListDeadLetterSourceQueuesCommand).build() {
+      static {
+        __name(this, "ListDeadLetterSourceQueuesCommand");
+      }
+    };
+    var ListMessageMoveTasksCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "ListMessageMoveTasks", {}).n("SQSClient", "ListMessageMoveTasksCommand").f(void 0, void 0).ser(se_ListMessageMoveTasksCommand).de(de_ListMessageMoveTasksCommand).build() {
+      static {
+        __name(this, "ListMessageMoveTasksCommand");
+      }
+    };
+    var ListQueuesCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "ListQueues", {}).n("SQSClient", "ListQueuesCommand").f(void 0, void 0).ser(se_ListQueuesCommand).de(de_ListQueuesCommand).build() {
+      static {
+        __name(this, "ListQueuesCommand");
+      }
+    };
+    var ListQueueTagsCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "ListQueueTags", {}).n("SQSClient", "ListQueueTagsCommand").f(void 0, void 0).ser(se_ListQueueTagsCommand).de(de_ListQueueTagsCommand).build() {
+      static {
+        __name(this, "ListQueueTagsCommand");
+      }
+    };
+    var PurgeQueueCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "PurgeQueue", {}).n("SQSClient", "PurgeQueueCommand").f(void 0, void 0).ser(se_PurgeQueueCommand).de(de_PurgeQueueCommand).build() {
+      static {
+        __name(this, "PurgeQueueCommand");
+      }
+    };
+    var ReceiveMessageCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions()),
+        (0, import_middleware_sdk_sqs.getReceiveMessagePlugin)(config)
+      ];
+    }).s("AmazonSQS", "ReceiveMessage", {}).n("SQSClient", "ReceiveMessageCommand").f(void 0, void 0).ser(se_ReceiveMessageCommand).de(de_ReceiveMessageCommand).build() {
+      static {
+        __name(this, "ReceiveMessageCommand");
+      }
+    };
+    var RemovePermissionCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "RemovePermission", {}).n("SQSClient", "RemovePermissionCommand").f(void 0, void 0).ser(se_RemovePermissionCommand).de(de_RemovePermissionCommand).build() {
+      static {
+        __name(this, "RemovePermissionCommand");
+      }
+    };
+    var SendMessageBatchCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions()),
+        (0, import_middleware_sdk_sqs.getSendMessageBatchPlugin)(config)
+      ];
+    }).s("AmazonSQS", "SendMessageBatch", {}).n("SQSClient", "SendMessageBatchCommand").f(void 0, void 0).ser(se_SendMessageBatchCommand).de(de_SendMessageBatchCommand).build() {
+      static {
+        __name(this, "SendMessageBatchCommand");
+      }
+    };
+    var SendMessageCommand2 = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions()),
+        (0, import_middleware_sdk_sqs.getSendMessagePlugin)(config)
+      ];
+    }).s("AmazonSQS", "SendMessage", {}).n("SQSClient", "SendMessageCommand").f(void 0, void 0).ser(se_SendMessageCommand).de(de_SendMessageCommand).build() {
+      static {
+        __name(this, "SendMessageCommand");
+      }
+    };
+    var SetQueueAttributesCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "SetQueueAttributes", {}).n("SQSClient", "SetQueueAttributesCommand").f(void 0, void 0).ser(se_SetQueueAttributesCommand).de(de_SetQueueAttributesCommand).build() {
+      static {
+        __name(this, "SetQueueAttributesCommand");
+      }
+    };
+    var StartMessageMoveTaskCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "StartMessageMoveTask", {}).n("SQSClient", "StartMessageMoveTaskCommand").f(void 0, void 0).ser(se_StartMessageMoveTaskCommand).de(de_StartMessageMoveTaskCommand).build() {
+      static {
+        __name(this, "StartMessageMoveTaskCommand");
+      }
+    };
+    var TagQueueCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "TagQueue", {}).n("SQSClient", "TagQueueCommand").f(void 0, void 0).ser(se_TagQueueCommand).de(de_TagQueueCommand).build() {
+      static {
+        __name(this, "TagQueueCommand");
+      }
+    };
+    var UntagQueueCommand = class extends import_smithy_client28.Command.classBuilder().ep(commonParams3).m(function(Command, cs, config, o3) {
+      return [
+        (0, import_middleware_serde5.getSerdePlugin)(config, this.serialize, this.deserialize),
+        (0, import_middleware_endpoint6.getEndpointPlugin)(config, Command.getEndpointParameterInstructions())
+      ];
+    }).s("AmazonSQS", "UntagQueue", {}).n("SQSClient", "UntagQueueCommand").f(void 0, void 0).ser(se_UntagQueueCommand).de(de_UntagQueueCommand).build() {
+      static {
+        __name(this, "UntagQueueCommand");
+      }
+    };
+    var commands3 = {
+      AddPermissionCommand,
+      CancelMessageMoveTaskCommand,
+      ChangeMessageVisibilityCommand,
+      ChangeMessageVisibilityBatchCommand,
+      CreateQueueCommand,
+      DeleteMessageCommand,
+      DeleteMessageBatchCommand,
+      DeleteQueueCommand,
+      GetQueueAttributesCommand,
+      GetQueueUrlCommand,
+      ListDeadLetterSourceQueuesCommand,
+      ListMessageMoveTasksCommand,
+      ListQueuesCommand,
+      ListQueueTagsCommand,
+      PurgeQueueCommand,
+      ReceiveMessageCommand,
+      RemovePermissionCommand,
+      SendMessageCommand: SendMessageCommand2,
+      SendMessageBatchCommand,
+      SetQueueAttributesCommand,
+      StartMessageMoveTaskCommand,
+      TagQueueCommand,
+      UntagQueueCommand
+    };
+    var SQS = class extends SQSClient2 {
+      static {
+        __name(this, "SQS");
+      }
+    };
+    (0, import_smithy_client28.createAggregatedClient)(commands3, SQS);
+    var paginateListDeadLetterSourceQueues = (0, import_core18.createPaginator)(SQSClient2, ListDeadLetterSourceQueuesCommand, "NextToken", "NextToken", "MaxResults");
+    var paginateListQueues = (0, import_core18.createPaginator)(SQSClient2, ListQueuesCommand, "NextToken", "NextToken", "MaxResults");
+  }
+});
+
 // src/handlers/card-purchase-lambda.ts
 var card_purchase_lambda_exports = {};
 __export(card_purchase_lambda_exports, {
@@ -30279,13 +32996,36 @@ var DynamoDBService = class {
   }
 };
 
+// src/simple-queue-service/simple-queue.service.ts
+var import_client_sqs = __toESM(require_dist_cjs60(), 1);
+var SimpleQueueService = class {
+  sqsClient;
+  constructor() {
+    this.sqsClient = new import_client_sqs.SQSClient({});
+  }
+  async sendMessage(message) {
+    const params = {
+      QueueUrl: message.queueUrl,
+      MessageBody: JSON.stringify(message.body)
+    };
+    try {
+      await this.sqsClient.send(new import_client_sqs.SendMessageCommand(params));
+    } catch (error2) {
+      console.error("Error sending message to SQS:", error2);
+      throw error2;
+    }
+  }
+};
+
 // src/handlers/card-purchase-lambda.ts
 var cardPurchaseHandler = async (event) => {
   try {
     const body = JSON.parse(event.body || "{}");
     const { merchant, cardId, amount } = body;
     const dynamoDBService = new DynamoDBService();
+    const sqsService = new SimpleQueueService();
     const TABLE_NAME = process.env.DYNAMODB_TRANSACTION_TABLE || "";
+    const QUEUE_URL = process.env.NOTIFICATIONS_EMAIL_SQS_URL || "";
     const payload2 = {
       uuid: v4_default(),
       cardId,
@@ -30298,7 +33038,18 @@ var cardPurchaseHandler = async (event) => {
       TableName: TABLE_NAME,
       Item: payload2
     });
-    console.log(res);
+    await sqsService.sendMessage({
+      queueUrl: QUEUE_URL,
+      body: {
+        type: "TRANSACTION.PURCHASE",
+        data: {
+          date: (/* @__PURE__ */ new Date()).toISOString(),
+          merchant,
+          cardId,
+          amount
+        }
+      }
+    });
     return {
       statusCode: 200,
       body: JSON.stringify({ ...payload2 }),

@@ -194,7 +194,7 @@ resource "aws_dynamodb_table" "card-table-error" {
 # Infraestructura para gestión de compras con tarjetas
 
 
-resource "aws_dynamodb_table" "card-purchase-table" {
+resource "aws_dynamodb_table" "transaction-table" {
   name           = var.dynamodb_table_card_purchase
   billing_mode   = "PROVISIONED"
   read_capacity  = 20
@@ -227,14 +227,15 @@ resource "aws_lambda_function" "card-purchase-lambda" {
 
   environment {
     variables = {
-      DYNAMODB_TRANSACTION_TABLE = aws_dynamodb_table.card-purchase-table.name
+      DYNAMODB_TRANSACTION_TABLE = aws_dynamodb_table.transaction-table.name
+      NOTIFICATIONS_EMAIL_SQS_URL = data.aws_sqs_queue.notification-email-sqs.url
     }
   }
 
   depends_on = [
     aws_iam_role_policy.iam_policy_lambda_card_purchase,
     data.archive_file.lambda_card_purchase_file,
-    aws_dynamodb_table.card-purchase-table
+    aws_dynamodb_table.transaction-table
   ]
 
 }

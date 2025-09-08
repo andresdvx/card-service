@@ -55,5 +55,5 @@ variable "lambda_card_purchase_handler" {
 variable "dynamodb_table_card_purchase" {
   description = "value"
   type        = string
-  default     = "card-purchase-table"
+  default     = "transaction-table"
 }
