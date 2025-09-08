@@ -12,6 +12,12 @@ data "archive_file" "lambda_card_request_failed_file" {
   output_path = "lambda_card-request-failed-lambda.zip"
 }
 
+data "archive_file" "lambda_card_purchase_file" {
+  type        = "zip"
+  source_file = "${path.module}/../app/dist/card-purchase-lambda.js"
+  output_path = "lambda_card-purchase-lambda.zip"
+}
+
 # IAM Role Policy Document for Lambda Assume Role
 data "aws_iam_policy_document" "assume_role_policy" {
   statement {
@@ -55,6 +61,7 @@ data "aws_iam_policy_document" "lambda_sqs_create_card_execution" {
   }
 }
 
+# IAM Role Policy Document for Lambda Card Request Failed Execution
 data "aws_iam_policy_document" "lambda_card_request_failed_execution" {
 
   statement { # Permitir a la lambda interactuar con la cola DLQ
@@ -97,5 +104,22 @@ data "aws_iam_policy_document" "lambda_card_request_failed_execution" {
 
 # Data Source para obtener la sqs existente
 data "aws_sqs_queue" "notification-email-sqs" {
-  name = "inferno-bank-notification-email-sqs-dev"
+  name = "inferno-bank-notification-email-sqs-dev" #notification-email-sqs
+}
+
+
+# IAM Role Policy Document for Lambda Card Purchase Execution
+data "aws_iam_policy_document" "lambda_card_purchase_execution" {
+
+  statement { # Permitir a la lambda escribir en la tabla DynamoDB de compras con tarjeta
+    effect = "Allow"
+    actions = [
+      "dynamodb:PutItem",
+      "dynamodb:GetItem",
+      "dynamodb:UpdateItem"
+    ]
+    resources = [
+      aws_dynamodb_table.card-purchase-table.arn
+    ]
+  }
 }

@@ -39,3 +39,21 @@ variable "dynamodb_table_errors" {
   type        = string
   default     = "card-table-error"
 }
+
+variable "lambda_card_purchase" {
+  description = "value"
+  type        = string
+  default     = "card-purchase-lambda"
+}
+
+variable "lambda_card_purchase_handler" {
+  description = "value"
+  type        = string
+  default     = "card-purchase-lambda.handler"
+}
+
+variable "dynamodb_table_card_purchase" {
+  description = "value"
+  type        = string
+  default     = "card-purchase-table"
+}

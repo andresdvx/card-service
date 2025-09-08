@@ -15,8 +15,8 @@ resource "aws_sqs_queue" "create-request-card-sqs" {
   fifo_queue                  = false
   content_based_deduplication = false
   visibility_timeout_seconds  = 20
-  message_retention_seconds   = 1209600 
-  receive_wait_time_seconds   = 20      
+  message_retention_seconds   = 1209600
+  receive_wait_time_seconds   = 20
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.create-request-card-dlq.arn
@@ -38,7 +38,7 @@ resource "aws_lambda_function" "create-request-card-lambda" {
 
   environment {
     variables = {
-      DYNAMODB_CARDS_TABLE = aws_dynamodb_table.card-table.name
+      DYNAMODB_CARDS_TABLE        = aws_dynamodb_table.card-table.name
       NOTIFICATIONS_EMAIL_SQS_URL = data.aws_sqs_queue.notification-email-sqs.url
     }
   }
@@ -107,23 +107,23 @@ resource "aws_dynamodb_table" "card-table" {
 
 # -> Dead Letter Queue para mensajes fallidos
 resource "aws_sqs_queue" "create-request-card-dlq" {
-  name                      = "${var.sqs_create_request_card}-dlq"
-  message_retention_seconds = 1209600
+  name                       = "${var.sqs_create_request_card}-dlq"
+  message_retention_seconds  = 1209600
   visibility_timeout_seconds = 960
-  receive_wait_time_seconds = 20
+  receive_wait_time_seconds  = 20
 }
 
 # -> Lambda para procesar mensajes fallidos en la DLQ
 resource "aws_lambda_function" "card-request-failed" {
-  filename = data.archive_file.lambda_card_request_failed_file.output_path
-  function_name = var.lambda_dlq_request_card_failed
-  handler = var.lambda_dlq_request_card_failed_handler
-  runtime = "nodejs22.x"
-  timeout = 900
-  memory_size = 256
-  role = aws_iam_role.iam_rol_lambda_dql_request_card_failed.arn
+  filename         = data.archive_file.lambda_card_request_failed_file.output_path
+  function_name    = var.lambda_dlq_request_card_failed
+  handler          = var.lambda_dlq_request_card_failed_handler
+  runtime          = "nodejs22.x"
+  timeout          = 900
+  memory_size      = 256
+  role             = aws_iam_role.iam_rol_lambda_dql_request_card_failed.arn
   source_code_hash = data.archive_file.lambda_card_request_failed_file.output_base64sha256
-  publish = true
+  publish          = true
 
   environment {
     variables = {
@@ -147,7 +147,7 @@ resource "aws_iam_role" "iam_rol_lambda_dql_request_card_failed" {
 # IAM Policy para la lambda de procesamiento de la DLQ
 resource "aws_iam_role_policy" "iam_policy_lambda_dql_request_card_failed" {
   name   = "iam_policy_lambda_dlq_request_card_failed"
-  role = aws_iam_role.iam_rol_lambda_dql_request_card_failed.id
+  role   = aws_iam_role.iam_rol_lambda_dql_request_card_failed.id
   policy = data.aws_iam_policy_document.lambda_card_request_failed_execution.json
 }
 
@@ -187,4 +187,73 @@ resource "aws_dynamodb_table" "card-table-error" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+
+
+# Infraestructura para gestión de compras con tarjetas
+
+
+resource "aws_dynamodb_table" "card-purchase-table" {
+  name           = var.dynamodb_table_card_purchase
+  billing_mode   = "PROVISIONED"
+  read_capacity  = 20
+  write_capacity = 20
+
+  hash_key = "uuid"
+
+  attribute {
+    name = "uuid"
+    type = "S"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+
+# Lambda para gestionar compras con tarjetas
+resource "aws_lambda_function" "card-purchase-lambda" {
+  filename         = data.archive_file.lambda_card_purchase_file.output_path
+  function_name    = var.lambda_card_purchase
+  handler          = var.lambda_card_purchase_handler
+  runtime          = "nodejs22.x"
+  timeout          = 900
+  memory_size      = 256
+  role             = aws_iam_role.iam_rol_lambda_card_purchase.arn
+  source_code_hash = data.archive_file.lambda_card_purchase_file.output_base64sha256
+  publish          = true
+
+  environment {
+    variables = {
+      DYNAMODB_TRANSACTION_TABLE = aws_dynamodb_table.card-purchase-table.name
+    }
+  }
+
+  depends_on = [
+    aws_iam_role_policy.iam_policy_lambda_card_purchase,
+    data.archive_file.lambda_card_purchase_file,
+    aws_dynamodb_table.card-purchase-table
+  ]
+
+}
+
+# IAM Role para la lambda de gestión de compras con tarjetas
+resource "aws_iam_role" "iam_rol_lambda_card_purchase" {
+  name               = "iam_rol_lambda_card_purchase"
+  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
+}
+
+# IAM Policy para la lambda de gestión de compras con tarjetas
+resource "aws_iam_role_policy" "iam_policy_lambda_card_purchase" {
+  name   = "iam_policy_lambda_card_purchase"
+  role   = aws_iam_role.iam_rol_lambda_card_purchase.id
+  policy = data.aws_iam_policy_document.lambda_card_purchase_execution.json
+}
+
+# Adjuntar la política gestionada AWSLambdaBasicExecutionRole a la IAM Role de la lambda
+resource "aws_iam_role_policy_attachment" "iam_policy_attachment_lambda_card_purchase" {
+  role       = aws_iam_role.iam_rol_lambda_card_purchase.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
