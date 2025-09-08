@@ -57,3 +57,15 @@ variable "dynamodb_table_card_purchase" {
   type        = string
   default     = "transaction-table"
 }
+
+variable "lambda_card_transaction_save" {
+  description = "value"
+  type        = string
+  default     = "card-transaction-save-lambda"
+}
+
+variable "lambda_card_transaction_save_handler" {
+  description = "value"
+  type        = string
+  default     = "card-transaction-save-lambda.handler"
+}
