@@ -569,6 +569,40 @@ resource "aws_lambda_permission" "api_gateway_lambda_card_paid" {
   source_arn    = "${aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn}/*/*"
 }
 
+# --- INTEGRACIÓN ENDPOINT /card/activate ---
+
+resource "aws_api_gateway_resource" "card_activate_action" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  parent_id   = aws_api_gateway_resource.card.id
+  path_part   = "activate"
+}
+
+resource "aws_api_gateway_method" "card_activate_post" {
+  rest_api_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id   = aws_api_gateway_resource.card_activate_action.id
+  http_method   = "POST"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "card_activate_lambda" {
+  rest_api_id             = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id             = aws_api_gateway_resource.card_activate_action.id
+  http_method             = aws_api_gateway_method.card_activate_post.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.card-activate-lambda.invoke_arn
+}
+
+resource "aws_lambda_permission" "api_gateway_lambda_card_activate" {
+  statement_id  = "AllowExecutionFromAPIGatewayCardActivate"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.card-activate-lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn}/*/*"
+}
+
+# --- FIN INTEGRACIÓN ENDPOINT /card/activate ---
+
 # API Gateway Deployment
 resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
   depends_on = [
@@ -578,6 +612,8 @@ resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
     aws_api_gateway_integration.save_lambda,
     aws_api_gateway_method.card_paid_post,
     aws_api_gateway_integration.card_paid_lambda,
+    aws_api_gateway_method.card_activate_post,
+    aws_api_gateway_integration.card_activate_lambda,
   ]
 
   rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
@@ -590,6 +626,8 @@ resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
       aws_api_gateway_integration.save_lambda.id,
       aws_api_gateway_method.card_paid_post.id,
       aws_api_gateway_integration.card_paid_lambda.id,
+      aws_api_gateway_method.card_activate_post.id,
+      aws_api_gateway_integration.card_activate_lambda.id,
     ]))
   }
 
@@ -623,5 +661,10 @@ output "api_gateway_transaction_save_url" {
 output "api_gateway_card_paid_url" {
   description = "URL completa para invocar el API de card paid"
   value       = "${aws_api_gateway_stage.dev.invoke_url}/card/paid/{card_id}"
+}
+
+output "api_gateway_card_activate_url" {
+  description = "URL completa para invocar el API de card activate"
+  value       = "${aws_api_gateway_stage.dev.invoke_url}/card/activate"
 }
 

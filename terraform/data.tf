@@ -256,7 +256,8 @@ data "aws_iam_policy_document" "lambda_card_activate_execution" {
     effect = "Allow"
     actions = [
       "dynamodb:GetItem",
-      "dynamodb:UpdateItem"
+      "dynamodb:UpdateItem",
+      "dynamodb:Scan",
     ]
     resources = [
       aws_dynamodb_table.card-table.arn
@@ -282,7 +283,8 @@ data "aws_iam_policy_document" "lambda_card_activate_execution" {
     actions = [
       "dynamodb:PutItem",
       "dynamodb:GetItem",
-      "dynamodb:UpdateItem"
+      "dynamodb:UpdateItem",
+      "dynamodb:Scan"
     ]
     resources = [
       aws_dynamodb_table.transaction-table.arn

@@ -13,6 +13,28 @@ export class DynamoDBService {
     });
   }
 
+  async scanTable(params: {
+    TableName: string;
+    FilterExpression?: string;
+    ExpressionAttributeValues?: Record<string, any>;
+    ExpressionAttributeNames?: Record<string, string>;
+  }): Promise<any> {
+    try {
+      const { ScanCommand } = await import("@aws-sdk/lib-dynamodb");
+      const res = await this.client.send(
+        new ScanCommand({
+          TableName: params.TableName,
+          FilterExpression: params.FilterExpression,
+          ExpressionAttributeValues: params.ExpressionAttributeValues,
+          ExpressionAttributeNames: params.ExpressionAttributeNames,
+        })
+      );
+      return res;
+    } catch (error) {
+      console.error("Error scanning table in DynamoDB:", error);
+      throw error;
+    }
+  }
   async saveItem(item: { TableName: string; Item: Record<string, any> }): Promise<any> {
     try {
       const res = await this.client.send(

@@ -32966,6 +32966,23 @@ var DynamoDBService = class {
       }
     });
   }
+  async scanTable(params) {
+    try {
+      const { ScanCommand } = await Promise.resolve().then(() => __toESM(require_dist_cjs58(), 1));
+      const res = await this.client.send(
+        new ScanCommand({
+          TableName: params.TableName,
+          FilterExpression: params.FilterExpression,
+          ExpressionAttributeValues: params.ExpressionAttributeValues,
+          ExpressionAttributeNames: params.ExpressionAttributeNames
+        })
+      );
+      return res;
+    } catch (error2) {
+      console.error("Error scanning table in DynamoDB:", error2);
+      throw error2;
+    }
+  }
   async saveItem(item) {
     try {
       const res = await this.client.send(
