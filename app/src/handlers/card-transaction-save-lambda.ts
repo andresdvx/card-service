@@ -13,9 +13,10 @@ const cardTransactionSaveHandler = async (
   event: APIGatewayEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
+    
     const body = JSON.parse(event.body || "{}");
     const { merchant, amount }: ITransactionSavePayload = body;
-    const cardId = event.pathParameters?.cardId;
+    const cardId = event.pathParameters?.card_id;
     
     if (!cardId) {
       return {

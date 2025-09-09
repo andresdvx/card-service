@@ -33040,7 +33040,7 @@ var cardPaidCreditHandler = async (event) => {
   try {
     const body = JSON.parse(event.body || "{}");
     const { merchant, amount } = body;
-    const cardId = event.pathParameters?.cardId;
+    const cardId = event.pathParameters?.card_id;
     if (!cardId) {
       return {
         statusCode: 400,

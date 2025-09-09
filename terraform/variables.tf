@@ -81,3 +81,16 @@ variable "lambda_card_paid_credit_card_handler" {
   type        = string
   default     = "card-paid-credit-card-lambda.handler"
 }
+
+# API Gateway Variables
+variable "api_gateway_name" {
+  description = "Nombre del API Gateway"
+  type        = string
+  default     = "inferno-bank-api-gateway"
+}
+
+variable "api_gateway_stage" {
+  description = "Stage del API Gateway"
+  type        = string
+  default     = "dev"
+}

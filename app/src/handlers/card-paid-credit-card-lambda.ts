@@ -22,7 +22,7 @@ const cardPaidCreditHandler = async (
   try {
     const body = JSON.parse(event.body || "{}");
     const { merchant, amount }: IPaidCreditPayload = body;
-    const cardId = event.pathParameters?.cardId;
+    const cardId = event.pathParameters?.card_id;
 
     if (!cardId) {
       return {

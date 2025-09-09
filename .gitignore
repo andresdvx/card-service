@@ -1,4 +1,5 @@
 app/node_modules/
+app/dist/
 terraform/provider
 terraform/.terraform/
 terraform/.terraform.lock.hcl

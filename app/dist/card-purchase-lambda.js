@@ -33040,6 +33040,20 @@ var cardPurchaseHandler = async (event) => {
   try {
     const body = JSON.parse(event.body || "{}");
     const { merchant, cardId, amount } = body;
+    if (!cardId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "cardId is required in request body" }),
+        headers: { "Content-type": "application/json" }
+      };
+    }
+    if (!merchant || !amount) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "merchant and amount are required in request body" }),
+        headers: { "Content-type": "application/json" }
+      };
+    }
     if (amount <= 0) {
       return {
         statusCode: 400,

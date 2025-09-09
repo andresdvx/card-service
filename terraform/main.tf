@@ -353,3 +353,240 @@ resource "aws_iam_role_policy_attachment" "iam_rol_lambda_card_paid_credit_card"
   role       = aws_iam_role.iam_rol_lambda_card_paid_credit_card.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
+
+# ================================
+# API GATEWAY CONFIGURATION
+# ================================
+
+# API Gateway REST API
+resource "aws_api_gateway_rest_api" "inferno-bank-api-gateway" {
+  name        = var.api_gateway_name
+  description = "API Gateway for Card Service"
+  
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+# API Gateway Resource: /transactions
+resource "aws_api_gateway_resource" "transactions" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  parent_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.root_resource_id
+  path_part   = "transactions"
+}
+
+# API Gateway Resource: /transactions/purchase
+resource "aws_api_gateway_resource" "purchase" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  parent_id   = aws_api_gateway_resource.transactions.id
+  path_part   = "purchase"
+}
+
+# API Gateway Method: POST /transactions/purchase
+resource "aws_api_gateway_method" "purchase_post" {
+  rest_api_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id   = aws_api_gateway_resource.purchase.id
+  http_method   = "POST"
+  authorization = "NONE"
+}
+
+# API Gateway Integration: Lambda
+resource "aws_api_gateway_integration" "purchase_lambda" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id = aws_api_gateway_resource.purchase.id
+  http_method = aws_api_gateway_method.purchase_post.http_method
+
+  integration_http_method = "POST"
+  type                   = "AWS_PROXY"
+  uri                    = aws_lambda_function.card-purchase-lambda.invoke_arn
+}
+
+# Lambda Permission for API Gateway
+resource "aws_lambda_permission" "api_gateway_lambda_purchase" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.card-purchase-lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn}/*/*"
+}
+
+# ================================
+# API GATEWAY SAVE ENDPOINT
+# ================================
+
+# API Gateway Resource: /transactions/save
+resource "aws_api_gateway_resource" "save" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  parent_id   = aws_api_gateway_resource.transactions.id
+  path_part   = "save"
+}
+
+# API Gateway Resource: /transactions/save/{card_id}
+resource "aws_api_gateway_resource" "save_card_id" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  parent_id   = aws_api_gateway_resource.save.id
+  path_part   = "{card_id}"
+}
+
+# API Gateway Method: POST /transactions/save/{card_id}
+resource "aws_api_gateway_method" "save_post" {
+  rest_api_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id   = aws_api_gateway_resource.save_card_id.id
+  http_method   = "POST"
+  authorization = "NONE"
+
+  request_parameters = {
+    "method.request.path.card_id" = true
+  }
+}
+
+# API Gateway Integration: Lambda for Save
+resource "aws_api_gateway_integration" "save_lambda" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id = aws_api_gateway_resource.save_card_id.id
+  http_method = aws_api_gateway_method.save_post.http_method
+
+  integration_http_method = "POST"
+  type                   = "AWS_PROXY"
+  uri                    = aws_lambda_function.card-transaction-save-lambda.invoke_arn
+
+  request_parameters = {
+    "integration.request.path.card_id" = "method.request.path.card_id"
+  }
+}
+
+# Lambda Permission for API Gateway Save
+resource "aws_lambda_permission" "api_gateway_lambda_save" {
+  statement_id  = "AllowExecutionFromAPIGatewaySave"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.card-transaction-save-lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn}/*/*"
+}
+
+# ================================
+# API GATEWAY CARD PAID ENDPOINT
+# ================================
+
+# API Gateway Resource: /card
+resource "aws_api_gateway_resource" "card" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  parent_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.root_resource_id
+  path_part   = "card"
+}
+
+# API Gateway Resource: /card/paid
+resource "aws_api_gateway_resource" "card_paid" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  parent_id   = aws_api_gateway_resource.card.id
+  path_part   = "paid"
+}
+
+# API Gateway Resource: /card/paid/{card_id}
+resource "aws_api_gateway_resource" "card_paid_card_id" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  parent_id   = aws_api_gateway_resource.card_paid.id
+  path_part   = "{card_id}"
+}
+
+# API Gateway Method: POST /card/paid/{card_id}
+resource "aws_api_gateway_method" "card_paid_post" {
+  rest_api_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id   = aws_api_gateway_resource.card_paid_card_id.id
+  http_method   = "POST"
+  authorization = "NONE"
+
+  request_parameters = {
+    "method.request.path.card_id" = true
+  }
+}
+
+# API Gateway Integration: Lambda for Card Paid
+resource "aws_api_gateway_integration" "card_paid_lambda" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id = aws_api_gateway_resource.card_paid_card_id.id
+  http_method = aws_api_gateway_method.card_paid_post.http_method
+
+  integration_http_method = "POST"
+  type                   = "AWS_PROXY"
+  uri                    = aws_lambda_function.card-paid-credit-card-lambda.invoke_arn
+
+  request_parameters = {
+    "integration.request.path.card_id" = "method.request.path.card_id"
+  }
+}
+
+# Lambda Permission for API Gateway Card Paid
+resource "aws_lambda_permission" "api_gateway_lambda_card_paid" {
+  statement_id  = "AllowExecutionFromAPIGatewayCardPaid"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.card-paid-credit-card-lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn}/*/*"
+}
+
+# API Gateway Deployment
+resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
+  depends_on = [
+    aws_api_gateway_method.purchase_post,
+    aws_api_gateway_integration.purchase_lambda,
+    aws_api_gateway_method.save_post,
+    aws_api_gateway_integration.save_lambda,
+    aws_api_gateway_method.card_paid_post,
+    aws_api_gateway_integration.card_paid_lambda,
+  ]
+
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_method.purchase_post.id,
+      aws_api_gateway_integration.purchase_lambda.id,
+      aws_api_gateway_method.save_post.id,
+      aws_api_gateway_integration.save_lambda.id,
+      aws_api_gateway_method.card_paid_post.id,
+      aws_api_gateway_integration.card_paid_lambda.id,
+    ]))
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# API Gateway Stage
+resource "aws_api_gateway_stage" "dev" {
+  deployment_id = aws_api_gateway_deployment.inferno_bank_api_gateway_deployment.id
+  rest_api_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  stage_name    = var.api_gateway_stage
+  
+  tags = {
+    Environment = "development"
+  }
+}
+
+# # Outputs para obtener la URL del API Gateway
+# output "api_gateway_url" {
+#   description = "URL base del API Gateway"
+#   value       = aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn
+# }
+
+output "api_gateway_transaction_purchase_url" {
+  description = "URL completa para invocar el API de purchase"
+  value       = "${aws_api_gateway_stage.dev.invoke_url}/transactions/purchase"
+}
+
+output "api_gateway_transaction_save_url" {
+  description = "URL completa para invocar el API de save"
+  value       = "${aws_api_gateway_stage.dev.invoke_url}/transactions/save/{card_id}"
+}
+
+output "api_gateway_card_paid_url" {
+  description = "URL completa para invocar el API de card paid"
+  value       = "${aws_api_gateway_stage.dev.invoke_url}/card/paid/{card_id}"
+}
+
+# output "api_gateway_base_url" {
+#   description = "URL base para todas las APIs"
+#   value       = aws_api_gateway_stage.dev.invoke_url
+# }
