@@ -236,6 +236,7 @@ resource "aws_lambda_function" "card-purchase-lambda" {
   depends_on = [
     aws_iam_role_policy.iam_policy_lambda_card_purchase,
     data.archive_file.lambda_card_purchase_file,
+    aws_dynamodb_table.card-table,
     aws_dynamodb_table.transaction-table
   ]
 }
@@ -284,6 +285,7 @@ resource "aws_lambda_function" "card-transaction-save-lambda" {
   depends_on = [
     aws_iam_role_policy.iam_policy_lambda_card_transaction_save,
     data.archive_file.lambda_card_transaction_save_file,
+    aws_dynamodb_table.card-table,
     aws_dynamodb_table.transaction-table
   ]
 }
@@ -354,15 +356,60 @@ resource "aws_iam_role_policy_attachment" "iam_rol_lambda_card_paid_credit_card"
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# ================================
+
+resource "aws_lambda_function" "card-activate-lambda" {
+  filename      = data.archive_file.lambda_card_activate_file.output_path
+  function_name = var.lambda_card_activate
+  handler       = var.lambda_card_activate_handler
+  runtime       = "nodejs22.x"
+  timeout       = 900
+  memory_size   = 256
+  role = aws_iam_role.iam_rol_lambda_card_activate.arn
+  source_code_hash = data.archive_file.lambda_card_activate_file.output_base64sha256
+  publish       = true
+
+  environment {
+    variables = {
+      DYNAMODB_TRANSACTION_TABLE  = aws_dynamodb_table.transaction-table.name
+      DYNAMODB_CARDS_TABLE        = aws_dynamodb_table.card-table.name
+      NOTIFICATIONS_EMAIL_SQS_URL = data.aws_sqs_queue.notification-email-sqs.url
+    }
+  }
+
+  depends_on = [
+    aws_iam_role_policy.iam_policy_lambda_card_activate,
+    data.archive_file.lambda_card_activate_file,
+    aws_dynamodb_table.card-table,
+    aws_dynamodb_table.transaction-table
+  ]
+}
+
+# IAM Role para la lambda de activar una tarjeta
+resource "aws_iam_role" "iam_rol_lambda_card_activate" {
+  name               = "iam_rol_lambda_card_activate"
+  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
+}
+
+# IAM Policy para la lambda de activar una tarjeta
+resource "aws_iam_role_policy" "iam_policy_lambda_card_activate" {
+  name   = "iam_policy_lambda_card_activate"
+  role   = aws_iam_role.iam_rol_lambda_card_activate.id
+  policy = data.aws_iam_policy_document.lambda_card_activate_execution.json
+}
+
+# Adjuntar la política gestionada AWSLambdaBasicExecutionRole a la IAM Role de la lambda
+resource "aws_iam_role_policy_attachment" "iam_rol_lambda_card_activate" {
+  role       = aws_iam_role.iam_rol_lambda_card_activate.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
 # API GATEWAY CONFIGURATION
-# ================================
 
 # API Gateway REST API
 resource "aws_api_gateway_rest_api" "inferno-bank-api-gateway" {
   name        = var.api_gateway_name
   description = "API Gateway for Card Service"
-  
+
   endpoint_configuration {
     types = ["REGIONAL"]
   }
@@ -397,8 +444,8 @@ resource "aws_api_gateway_integration" "purchase_lambda" {
   http_method = aws_api_gateway_method.purchase_post.http_method
 
   integration_http_method = "POST"
-  type                   = "AWS_PROXY"
-  uri                    = aws_lambda_function.card-purchase-lambda.invoke_arn
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.card-purchase-lambda.invoke_arn
 }
 
 # Lambda Permission for API Gateway
@@ -410,9 +457,7 @@ resource "aws_lambda_permission" "api_gateway_lambda_purchase" {
   source_arn    = "${aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn}/*/*"
 }
 
-# ================================
 # API GATEWAY SAVE ENDPOINT
-# ================================
 
 # API Gateway Resource: /transactions/save
 resource "aws_api_gateway_resource" "save" {
@@ -447,8 +492,8 @@ resource "aws_api_gateway_integration" "save_lambda" {
   http_method = aws_api_gateway_method.save_post.http_method
 
   integration_http_method = "POST"
-  type                   = "AWS_PROXY"
-  uri                    = aws_lambda_function.card-transaction-save-lambda.invoke_arn
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.card-transaction-save-lambda.invoke_arn
 
   request_parameters = {
     "integration.request.path.card_id" = "method.request.path.card_id"
@@ -464,9 +509,8 @@ resource "aws_lambda_permission" "api_gateway_lambda_save" {
   source_arn    = "${aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn}/*/*"
 }
 
-# ================================
+
 # API GATEWAY CARD PAID ENDPOINT
-# ================================
 
 # API Gateway Resource: /card
 resource "aws_api_gateway_resource" "card" {
@@ -508,8 +552,8 @@ resource "aws_api_gateway_integration" "card_paid_lambda" {
   http_method = aws_api_gateway_method.card_paid_post.http_method
 
   integration_http_method = "POST"
-  type                   = "AWS_PROXY"
-  uri                    = aws_lambda_function.card-paid-credit-card-lambda.invoke_arn
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.card-paid-credit-card-lambda.invoke_arn
 
   request_parameters = {
     "integration.request.path.card_id" = "method.request.path.card_id"
@@ -559,17 +603,12 @@ resource "aws_api_gateway_stage" "dev" {
   deployment_id = aws_api_gateway_deployment.inferno_bank_api_gateway_deployment.id
   rest_api_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
   stage_name    = var.api_gateway_stage
-  
+
   tags = {
     Environment = "development"
   }
 }
 
-# # Outputs para obtener la URL del API Gateway
-# output "api_gateway_url" {
-#   description = "URL base del API Gateway"
-#   value       = aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn
-# }
 
 output "api_gateway_transaction_purchase_url" {
   description = "URL completa para invocar el API de purchase"
@@ -586,7 +625,3 @@ output "api_gateway_card_paid_url" {
   value       = "${aws_api_gateway_stage.dev.invoke_url}/card/paid/{card_id}"
 }
 
-# output "api_gateway_base_url" {
-#   description = "URL base para todas las APIs"
-#   value       = aws_api_gateway_stage.dev.invoke_url
-# }

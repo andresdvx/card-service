@@ -26,10 +26,18 @@ data "archive_file" "lambda_card_transaction_save_file" {
   output_path = "lambda_card-transaction-save-lambda.zip"
 }
 
+# Terraform Data Source for Lambda Card Paid Credit Card File
 data "archive_file" "lambda_card_paid_credit_card_file" {
   type        = "zip"
   source_file = "${path.module}/../app/dist/card-paid-credit-card-lambda.js"
   output_path = "lambda_card-paid-credit-card-lambda.zip"
+}
+
+# Terraform Data Source for Lambda Card Activate File
+data "archive_file" "lambda_card_activate_file" {
+  type        = "zip"
+  source_file = "${path.module}/../app/dist/card-activate-lambda.js"
+  output_path = "lambda_card-activate-lambda.zip"
 }
 
 # IAM Role Policy Document for Lambda Assume Role
@@ -240,14 +248,44 @@ data "aws_iam_policy_document" "lambda_card_paid_credit_card_execution" {
       data.aws_sqs_queue.notification-email-sqs.arn
     ]
   }
+}
 
-  statement { # Permitir logs de CloudWatch
+data "aws_iam_policy_document" "lambda_card_activate_execution" {
+
+  statement { # Permitir a la lambda leer y actualizar la tabla DynamoDB de tarjetas
     effect = "Allow"
     actions = [
-      "logs:CreateLogGroup",
-      "logs:CreateLogStream",
-      "logs:PutLogEvents"
+      "dynamodb:GetItem",
+      "dynamodb:UpdateItem"
     ]
-    resources = ["arn:aws:logs:*:*:*"]
+    resources = [
+      aws_dynamodb_table.card-table.arn
+    ]
+  }
+
+  statement { # Permitir a la lambda interactuar con la cola SQS de notificaciones
+    effect = "Allow"
+    actions = [
+      "sqs:GetQueueAttributes",
+      "sqs:SendMessage",
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueUrl"
+    ]
+    resources = [
+      data.aws_sqs_queue.notification-email-sqs.arn
+    ]
+  }
+
+  statement { # Permitir a la lambda escribir en la tabla DynamoDB de transacciones
+    effect = "Allow"
+    actions = [
+      "dynamodb:PutItem",
+      "dynamodb:GetItem",
+      "dynamodb:UpdateItem"
+    ]
+    resources = [
+      aws_dynamodb_table.transaction-table.arn
+    ]
   }
 }

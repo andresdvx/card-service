@@ -82,7 +82,18 @@ variable "lambda_card_paid_credit_card_handler" {
   default     = "card-paid-credit-card-lambda.handler"
 }
 
-# API Gateway Variables
+variable "lambda_card_activate" {
+  description = "Lambda para activar la tarjeta"
+  type        = string
+  default     = "card-activate-lambda"
+}
+
+variable "lambda_card_activate_handler" {
+  description = "Handler de la Lambda para activar la tarjeta"
+  type        = string
+  default     = "card-activate-lambda.handler"
+}
+
 variable "api_gateway_name" {
   description = "Nombre del API Gateway"
   type        = string
