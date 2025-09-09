@@ -40,6 +40,13 @@ data "archive_file" "lambda_card_activate_file" {
   output_path = "lambda_card-activate-lambda.zip"
 }
 
+# Terraform Data Source for Lambda Card Get Report File
+data "archive_file" "lambda_card-get-report-lambda_file" {
+  type        = "zip"
+  source_file = "${path.module}/../app/dist/card-get-report-lambda.js"
+  output_path = "lambda_card-get-report-lambda.zip"
+}
+
 # IAM Role Policy Document for Lambda Assume Role
 data "aws_iam_policy_document" "assume_role_policy" {
   statement {
@@ -288,6 +295,21 @@ data "aws_iam_policy_document" "lambda_card_activate_execution" {
     ]
     resources = [
       aws_dynamodb_table.transaction-table.arn
+    ]
+  }
+}
+
+
+data "aws_iam_policy_document" "lambda_card_get_report_execution" {
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:listBucket",
+      "s3:GetObject",
+    ]
+    resources = [
+      aws_s3_bucket.transactions_report_bucket.arn,
     ]
   }
 }

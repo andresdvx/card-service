@@ -94,6 +94,18 @@ variable "lambda_card_activate_handler" {
   default     = "card-activate-lambda.handler"
 }
 
+variable "lambda_card_get_report" {
+  description = "Lambda para generar reportes de tarjetas"
+  type        = string
+  default     = "card-get-report-lambda"
+}
+
+variable "lambda_card_get_report_handler" {
+  description = "Handler de la Lambda para generar reportes de tarjetas"
+  type        = string
+  default     = "card-get-report-lambda.handler"
+}
+
 variable "api_gateway_name" {
   description = "Nombre del API Gateway"
   type        = string
@@ -105,3 +117,4 @@ variable "api_gateway_stage" {
   type        = string
   default     = "dev"
 }
+

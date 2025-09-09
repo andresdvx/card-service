@@ -358,15 +358,15 @@ resource "aws_iam_role_policy_attachment" "iam_rol_lambda_card_paid_credit_card"
 
 
 resource "aws_lambda_function" "card-activate-lambda" {
-  filename      = data.archive_file.lambda_card_activate_file.output_path
-  function_name = var.lambda_card_activate
-  handler       = var.lambda_card_activate_handler
-  runtime       = "nodejs22.x"
-  timeout       = 900
-  memory_size   = 256
-  role = aws_iam_role.iam_rol_lambda_card_activate.arn
+  filename         = data.archive_file.lambda_card_activate_file.output_path
+  function_name    = var.lambda_card_activate
+  handler          = var.lambda_card_activate_handler
+  runtime          = "nodejs22.x"
+  timeout          = 900
+  memory_size      = 256
+  role             = aws_iam_role.iam_rol_lambda_card_activate.arn
   source_code_hash = data.archive_file.lambda_card_activate_file.output_base64sha256
-  publish       = true
+  publish          = true
 
   environment {
     variables = {
@@ -403,7 +403,52 @@ resource "aws_iam_role_policy_attachment" "iam_rol_lambda_card_activate" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# API GATEWAY CONFIGURATION
+# -> Lambda para generar reportes de tarjetas
+resource "aws_lambda_function" "card-get-report-lambda" {
+  filename         = data.archive_file.lambda_card-get-report-lambda_file.output_path
+  function_name    = var.lambda_card_get_report
+  handler          = var.lambda_card_get_report_handler
+  runtime          = "nodejs22.x"
+  timeout          = 900
+  memory_size      = 256
+  role             = aws_iam_role.iam_rol_lambda_card_get_report.arn
+  source_code_hash = data.archive_file.lambda_card-get-report-lambda_file.output_base64sha256
+  publish          = true
+
+  environment {
+    variables = {
+      S3_BUCKET_NAME = aws_s3_bucket.transactions_report_bucket.bucket
+    }
+  }
+
+  depends_on = [
+    aws_iam_role_policy.iam_policy_lambda_card_get_report,
+    data.archive_file.lambda_card-get-report-lambda_file,
+    aws_s3_bucket.transactions_report_bucket
+  ]
+}
+
+# IAM Role para la lambda de generar reportes de tarjetas
+resource "aws_iam_role" "iam_rol_lambda_card_get_report" {
+  name               = "iam_rol_lambda_card_get_report"
+  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
+}
+
+# IAM Policy para la lambda de generar reportes de tarjetas
+resource "aws_iam_role_policy" "iam_policy_lambda_card_get_report" {
+  name   = "iam_policy_lambda_card_get_report"
+  role   = aws_iam_role.iam_rol_lambda_card_get_report.id
+  policy = data.aws_iam_policy_document.lambda_card_get_report_execution.json
+}
+
+# Adjuntar la política gestionada AWSLambdaBasicExecutionRole a la IAM Role de la lambda
+resource "aws_iam_policy" "iam_policy_lambda_card_get_report" {
+  name        = "iam_policy_lambda_card_get_report"
+  policy      = data.aws_iam_policy_document.lambda_card_get_report_execution.json
+}
+
+
+# -> API GATEWAY CONFIGURATION
 
 # API Gateway REST API
 resource "aws_api_gateway_rest_api" "inferno-bank-api-gateway" {
