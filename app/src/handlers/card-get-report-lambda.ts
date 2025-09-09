@@ -1,6 +1,8 @@
 import type { APIGatewayEvent, APIGatewayProxyResult } from "aws-lambda";
 import { DynamoDBService } from "../services/dynamodb/dynamodb.service.js";
 import { S3Service } from "../services/s3/s3.service.js";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export const handler = async (
   event: APIGatewayEvent
@@ -23,7 +25,7 @@ export const handler = async (
     const dynamoDBService = new DynamoDBService();
     const s3Service = new S3Service(S3_BUCKET);
 
-    // Buscar transacciones en el rango de fechas
+   
     const transactionsRes = await dynamoDBService.scanTable({
       TableName: TRANSACTION_TABLE_NAME,
       FilterExpression: "createdAt BETWEEN :start AND :end",
@@ -35,22 +37,30 @@ export const handler = async (
 
     const transactions = transactionsRes.Items || [];
 
-    // Crear contenido del archivo txt
+ 
     const fileContent = transactions
       .map((tx: Record<string, any>) => JSON.stringify(tx))
       .join("\n");
     const fileName = `report-${Date.now()}.txt`;
 
-    // Subir archivo a S3
+   
     await s3Service.uploadTxtFile(fileName, fileContent);
 
-    // Construir URL pública del archivo
-    const fileUrl = `https://${S3_BUCKET}.s3.${REGION}.amazonaws.com/${fileName}`;
+   
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: fileName,
+    });
+
+    const signedUrl = await getSignedUrl(s3Service["client"], command, {
+      expiresIn: 3600,
+    }); 
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ url: fileUrl }),
+      body: JSON.stringify({ url: signedUrl }),
     };
+
   } catch (error) {
     console.error(error);
     return {

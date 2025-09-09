@@ -727,3 +727,4 @@ resource "aws_s3_bucket" "transactions_report_bucket" {
     Environment = "development"
   }
 }
+
