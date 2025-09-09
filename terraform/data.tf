@@ -336,4 +336,18 @@ data "aws_iam_policy_document" "lambda_card_get_report_execution" {
       aws_dynamodb_table.card-table.arn
     ]
   }
+
+  statement { # Permitir a la lambda interactuar con la cola SQS de notificaciones
+    effect = "Allow"
+    actions = [
+      "sqs:GetQueueAttributes",
+      "sqs:SendMessage",
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueUrl"
+    ]
+    resources = [
+      data.aws_sqs_queue.notification-email-sqs.arn
+    ]
+  }
 }

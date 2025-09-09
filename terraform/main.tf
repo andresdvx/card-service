@@ -420,6 +420,7 @@ resource "aws_lambda_function" "card-get-report-lambda" {
       DYNAMODB_CARDS_TABLE =aws_dynamodb_table.card-table.name
       DYNAMODB_TRANSACTION_TABLE  = aws_dynamodb_table.transaction-table.name
       S3_BUCKET_NAME = aws_s3_bucket.transactions_report_bucket.bucket
+      NOTIFICATIONS_EMAIL_SQS_URL = data.aws_sqs_queue.notification-email-sqs.url
     }
   }
 
