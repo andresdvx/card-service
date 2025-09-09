@@ -29045,7 +29045,7 @@ var require_dist_cjs58 = __commonJS({
       ScanCommand: () => ScanCommand,
       TransactGetCommand: () => TransactGetCommand,
       TransactWriteCommand: () => TransactWriteCommand,
-      UpdateCommand: () => UpdateCommand,
+      UpdateCommand: () => UpdateCommand2,
       __Client: () => import_smithy_client28.Client,
       marshallOptions: () => import_util_dynamodb.marshallOptions,
       paginateQuery: () => paginateQuery,
@@ -29710,7 +29710,7 @@ var require_dist_cjs58 = __commonJS({
         return async () => handler2(this.clientCommand);
       }
     };
-    var UpdateCommand = class extends DynamoDBDocumentClientCommand {
+    var UpdateCommand2 = class extends DynamoDBDocumentClientCommand {
       constructor(input) {
         super();
         this.input = input;
@@ -29944,7 +29944,7 @@ var require_dist_cjs58 = __commonJS({
         }
       }
       update(args, optionsOrCb, cb) {
-        const command = new UpdateCommand(args);
+        const command = new UpdateCommand2(args);
         if (typeof optionsOrCb === "function") {
           this.send(command, optionsOrCb);
         } else if (typeof cb === "function") {
@@ -32994,6 +32994,24 @@ var DynamoDBService = class {
       throw error2;
     }
   }
+  async updateItem(params) {
+    try {
+      const res = await this.client.send(
+        new import_lib_dynamodb.UpdateCommand({
+          TableName: params.TableName,
+          Key: params.Key,
+          UpdateExpression: params.UpdateExpression,
+          ExpressionAttributeValues: params.ExpressionAttributeValues,
+          ExpressionAttributeNames: params.ExpressionAttributeNames,
+          ReturnValues: "ALL_NEW"
+        })
+      );
+      return res;
+    } catch (error2) {
+      console.error("Error updating item in DynamoDB:", error2);
+      throw error2;
+    }
+  }
 };
 
 // src/simple-queue-service/simple-queue.service.ts
@@ -33023,11 +33041,45 @@ var cardTransactionSaveHandler = async (event) => {
     const body = JSON.parse(event.body || "{}");
     const { merchant, amount } = body;
     const cardId = event.pathParameters?.cardId;
+    if (!cardId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "cardId is required" }),
+        headers: { "Content-type": "application/json" }
+      };
+    }
     const dynamoDBService = new DynamoDBService();
     const sqsService = new SimpleQueueService();
-    const TABLE_NAME = process.env.DYNAMODB_TRANSACTION_TABLE || "";
+    const CARD_TABLE_NAME = process.env.DYNAMODB_CARDS_TABLE || "";
+    const TRANSACTION_TABLE_NAME = process.env.DYNAMODB_TRANSACTION_TABLE || "";
     const QUEUE_URL = process.env.NOTIFICATIONS_EMAIL_SQS_URL || "";
-    const payload2 = {
+    const cardResponse = await dynamoDBService.getItem({
+      TableName: CARD_TABLE_NAME,
+      Key: {
+        uuid: cardId
+      }
+    });
+    if (!cardResponse.Item) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: "Card not found" }),
+        headers: { "Content-type": "application/json" }
+      };
+    }
+    const card = cardResponse.Item;
+    const currentBalance = card.balance || 0;
+    const newBalance = currentBalance + amount;
+    const updatedCard = await dynamoDBService.updateItem({
+      TableName: CARD_TABLE_NAME,
+      Key: {
+        uuid: cardId
+      },
+      UpdateExpression: "SET balance = :newBalance",
+      ExpressionAttributeValues: {
+        ":newBalance": newBalance
+      }
+    });
+    const transactionPayload = {
       uuid: v4_default(),
       cardId,
       amount,
@@ -33035,9 +33087,9 @@ var cardTransactionSaveHandler = async (event) => {
       type: "SAVING",
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     };
-    const res = await dynamoDBService.saveItem({
-      TableName: TABLE_NAME,
-      Item: payload2
+    await dynamoDBService.saveItem({
+      TableName: TRANSACTION_TABLE_NAME,
+      Item: transactionPayload
     });
     await sqsService.sendMessage({
       queueUrl: QUEUE_URL,
@@ -33047,21 +33099,31 @@ var cardTransactionSaveHandler = async (event) => {
           date: (/* @__PURE__ */ new Date()).toISOString(),
           merchant,
           cardId,
-          amount
+          amount,
+          previousBalance: currentBalance,
+          newBalance
         }
       }
     });
     return {
-      statusCode: 500,
-      body: JSON.stringify({ ...payload2 }),
+      statusCode: 200,
+      body: JSON.stringify({
+        message: "Transaction processed successfully",
+        transaction: transactionPayload,
+        updatedCard: updatedCard.Attributes
+      }),
       headers: {
         "Content-type": "application/json"
       }
     };
   } catch (error2) {
+    console.error("Error processing transaction:", error2);
     return {
-      statusCode: 200,
-      body: JSON.stringify({ message: "ok" }),
+      statusCode: 500,
+      body: JSON.stringify({
+        error: "Internal server error",
+        message: error2 instanceof Error ? error2.message : "Unknown error"
+      }),
       headers: {
         "Content-type": "application/json"
       }

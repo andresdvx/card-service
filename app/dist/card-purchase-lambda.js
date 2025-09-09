@@ -29045,7 +29045,7 @@ var require_dist_cjs58 = __commonJS({
       ScanCommand: () => ScanCommand,
       TransactGetCommand: () => TransactGetCommand,
       TransactWriteCommand: () => TransactWriteCommand,
-      UpdateCommand: () => UpdateCommand,
+      UpdateCommand: () => UpdateCommand2,
       __Client: () => import_smithy_client28.Client,
       marshallOptions: () => import_util_dynamodb.marshallOptions,
       paginateQuery: () => paginateQuery,
@@ -29710,7 +29710,7 @@ var require_dist_cjs58 = __commonJS({
         return async () => handler2(this.clientCommand);
       }
     };
-    var UpdateCommand = class extends DynamoDBDocumentClientCommand {
+    var UpdateCommand2 = class extends DynamoDBDocumentClientCommand {
       constructor(input) {
         super();
         this.input = input;
@@ -29944,7 +29944,7 @@ var require_dist_cjs58 = __commonJS({
         }
       }
       update(args, optionsOrCb, cb) {
-        const command = new UpdateCommand(args);
+        const command = new UpdateCommand2(args);
         if (typeof optionsOrCb === "function") {
           this.send(command, optionsOrCb);
         } else if (typeof cb === "function") {
@@ -32991,6 +32991,24 @@ var DynamoDBService = class {
       return res;
     } catch (error2) {
       console.error("Error getting item from DynamoDB:", error2);
+      throw error2;
+    }
+  }
+  async updateItem(params) {
+    try {
+      const res = await this.client.send(
+        new import_lib_dynamodb.UpdateCommand({
+          TableName: params.TableName,
+          Key: params.Key,
+          UpdateExpression: params.UpdateExpression,
+          ExpressionAttributeValues: params.ExpressionAttributeValues,
+          ExpressionAttributeNames: params.ExpressionAttributeNames,
+          ReturnValues: "ALL_NEW"
+        })
+      );
+      return res;
+    } catch (error2) {
+      console.error("Error updating item in DynamoDB:", error2);
       throw error2;
     }
   }

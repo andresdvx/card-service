@@ -274,6 +274,7 @@ resource "aws_lambda_function" "card-transaction-save-lambda" {
 
   environment {
     variables = {
+      DYNAMODB_CARDS_TABLE = aws_dynamodb_table.card-table.name
       DYNAMODB_TRANSACTION_TABLE = aws_dynamodb_table.transaction-table.name
       NOTIFICATIONS_EMAIL_SQS_URL = data.aws_sqs_queue.notification-email-sqs.url
     }

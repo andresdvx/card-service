@@ -16,12 +16,52 @@ const cardTransactionSaveHandler = async (
     const body = JSON.parse(event.body || "{}");
     const { merchant, amount }: ITransactionSavePayload = body;
     const cardId = event.pathParameters?.cardId;
+    
+    if (!cardId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "cardId is required" }),
+        headers: { "Content-type": "application/json" }
+      };
+    }
+
     const dynamoDBService = new DynamoDBService();
     const sqsService = new SimpleQueueService();
-    const TABLE_NAME = process.env.DYNAMODB_TRANSACTION_TABLE || "";
+    const CARD_TABLE_NAME = process.env.DYNAMODB_CARDS_TABLE || "";
+    const TRANSACTION_TABLE_NAME = process.env.DYNAMODB_TRANSACTION_TABLE || "";
     const QUEUE_URL = process.env.NOTIFICATIONS_EMAIL_SQS_URL || "";
 
-    const payload = {
+    const cardResponse = await dynamoDBService.getItem({
+      TableName: CARD_TABLE_NAME,
+      Key: {
+        uuid: cardId
+      }
+    });
+
+    if (!cardResponse.Item) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: "Card not found" }),
+        headers: { "Content-type": "application/json" }
+      };
+    }
+
+    const card = cardResponse.Item;
+    const currentBalance = card.balance || 0;
+    const newBalance = currentBalance + amount;
+
+    const updatedCard = await dynamoDBService.updateItem({
+      TableName: CARD_TABLE_NAME,
+      Key: {
+        uuid: cardId
+      },
+      UpdateExpression: "SET balance = :newBalance",
+      ExpressionAttributeValues: {
+        ":newBalance": newBalance
+      }
+    });
+
+    const transactionPayload = {
       uuid: uuid(),
       cardId,
       amount,
@@ -30,9 +70,9 @@ const cardTransactionSaveHandler = async (
       createdAt: new Date().toISOString(),
     };
 
-    const res = await dynamoDBService.saveItem({
-      TableName: TABLE_NAME,
-      Item: payload,
+    await dynamoDBService.saveItem({
+      TableName: TRANSACTION_TABLE_NAME,
+      Item: transactionPayload,
     });
 
     await sqsService.sendMessage({
@@ -44,21 +84,31 @@ const cardTransactionSaveHandler = async (
           merchant,
           cardId,
           amount: amount,
+          previousBalance: currentBalance,
+          newBalance: newBalance,
         },
       },
     });
 
     return {
-      statusCode: 500,
-      body: JSON.stringify({ ...payload }),
+      statusCode: 200,
+      body: JSON.stringify({ 
+        message: "Transaction processed successfully",
+        transaction: transactionPayload,
+        updatedCard: updatedCard.Attributes
+      }),
       headers: {
         "Content-type": "application/json",
       },
     };
   } catch (error) {
+    console.error("Error processing transaction:", error);
     return {
-      statusCode: 200,
-      body: JSON.stringify({ message: "ok" }),
+      statusCode: 500,
+      body: JSON.stringify({ 
+        error: "Internal server error",
+        message: error instanceof Error ? error.message : "Unknown error"
+      }),
       headers: {
         "Content-type": "application/json",
       },
