@@ -668,3 +668,15 @@ output "api_gateway_card_activate_url" {
   value       = "${aws_api_gateway_stage.dev.invoke_url}/card/activate"
 }
 
+
+
+# bucket s3 para almacenamiento transactions-report-bucket
+
+resource "aws_s3_bucket" "transactions_report_bucket" {
+  bucket = "transactions-report-bucket-inferno-bank"
+
+  tags = {
+    Name        = "transactions-report-bucket-inferno-bank"
+    Environment = "development"
+  }
+}
