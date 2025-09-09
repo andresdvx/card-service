@@ -240,4 +240,14 @@ data "aws_iam_policy_document" "lambda_card_paid_credit_card_execution" {
       data.aws_sqs_queue.notification-email-sqs.arn
     ]
   }
+
+  statement { # Permitir logs de CloudWatch
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    resources = ["arn:aws:logs:*:*:*"]
+  }
 }

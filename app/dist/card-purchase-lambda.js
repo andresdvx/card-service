@@ -33067,6 +33067,17 @@ var cardPurchaseHandler = async (event) => {
     }
     const card = cardResponse.Item;
     const currentBalance = card.balance || 0;
+    if (card.status !== "ACTIVATED") {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: "Card is not activated",
+          cardStatus: card.status,
+          message: "Only activated cards can make purchases"
+        }),
+        headers: { "Content-type": "application/json" }
+      };
+    }
     if (currentBalance < amount) {
       return {
         statusCode: 400,
@@ -33109,9 +33120,7 @@ var cardPurchaseHandler = async (event) => {
           date: (/* @__PURE__ */ new Date()).toISOString(),
           merchant,
           cardId,
-          amount,
-          previousBalance: currentBalance,
-          newBalance
+          amount
         }
       }
     });

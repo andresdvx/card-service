@@ -56,6 +56,18 @@ const cardPurchaseHandler = async (
     const card = cardResponse.Item;
     const currentBalance = card.balance || 0;
 
+    if (card.status !== "ACTIVATED") {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ 
+          error: "Card is not activated",
+          cardStatus: card.status,
+          message: "Only activated cards can make purchases"
+        }),
+        headers: { "Content-type": "application/json" }
+      };
+    }
+
     if (currentBalance < amount) {
       return {
         statusCode: 400,
@@ -95,7 +107,6 @@ const cardPurchaseHandler = async (
       Item: transactionPayload,
     });
 
-    // 6. Enviar notificación a SQS
     await sqsService.sendMessage({
       queueUrl: QUEUE_URL,
       body: {
@@ -105,8 +116,6 @@ const cardPurchaseHandler = async (
           merchant,
           cardId,
           amount: amount,
-          previousBalance: currentBalance,
-          newBalance: newBalance
         },
       },
     });

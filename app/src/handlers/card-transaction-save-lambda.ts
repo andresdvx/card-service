@@ -47,7 +47,21 @@ const cardTransactionSaveHandler = async (
     }
 
     const card = cardResponse.Item;
+
+    if (card.status !== "ACTIVATED") {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ 
+          error: "Card is not activated",
+          cardStatus: card.status,
+          message: "Only activated cards can receive transactions"
+        }),
+        headers: { "Content-type": "application/json" }
+      };
+    }
+
     const currentBalance = card.balance || 0;
+
     const newBalance = currentBalance + amount;
 
     const updatedCard = await dynamoDBService.updateItem({
@@ -82,10 +96,7 @@ const cardTransactionSaveHandler = async (
         data: {
           date: new Date().toISOString(),
           merchant,
-          cardId,
           amount: amount,
-          previousBalance: currentBalance,
-          newBalance: newBalance,
         },
       },
     });
