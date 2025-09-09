@@ -417,6 +417,7 @@ resource "aws_lambda_function" "card-get-report-lambda" {
 
   environment {
     variables = {
+      DYNAMODB_CARDS_TABLE =aws_dynamodb_table.card-table.name
       DYNAMODB_TRANSACTION_TABLE  = aws_dynamodb_table.transaction-table.name
       S3_BUCKET_NAME = aws_s3_bucket.transactions_report_bucket.bucket
     }
@@ -650,6 +651,45 @@ resource "aws_lambda_permission" "api_gateway_lambda_card_activate" {
 
 # --- FIN INTEGRACIÓN ENDPOINT /card/activate ---
 
+
+# --- INTEGRACIÓN ENDPOINT GET /card/{card_id} ---
+resource "aws_api_gateway_resource" "card_id" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  parent_id   = aws_api_gateway_resource.card.id
+  path_part   = "{card_id}"
+}
+
+resource "aws_api_gateway_method" "card_get_report" {
+  rest_api_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id   = aws_api_gateway_resource.card_id.id
+  http_method   = "GET"
+  authorization = "NONE"
+  request_parameters = {
+    "method.request.path.card_id" = true
+  }
+}
+
+resource "aws_api_gateway_integration" "card_get_report_lambda" {
+  rest_api_id             = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id             = aws_api_gateway_resource.card_id.id
+  http_method             = aws_api_gateway_method.card_get_report.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.card-get-report-lambda.invoke_arn
+  request_parameters = {
+    "integration.request.path.card_id" = "method.request.path.card_id"
+  }
+}
+
+resource "aws_lambda_permission" "api_gateway_lambda_card_get_report" {
+  statement_id  = "AllowExecutionFromAPIGatewayCardGetReport"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.card-get-report-lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn}/*/*"
+}
+# --- FIN INTEGRACIÓN ENDPOINT GET /card/{card_id} ---
+
 # API Gateway Deployment
 resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
   depends_on = [
@@ -661,6 +701,8 @@ resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
     aws_api_gateway_integration.card_paid_lambda,
     aws_api_gateway_method.card_activate_post,
     aws_api_gateway_integration.card_activate_lambda,
+    aws_api_gateway_method.card_get_report,
+    aws_api_gateway_integration.card_get_report_lambda,
   ]
 
   rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
@@ -675,6 +717,8 @@ resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
       aws_api_gateway_integration.card_paid_lambda.id,
       aws_api_gateway_method.card_activate_post.id,
       aws_api_gateway_integration.card_activate_lambda.id,
+      aws_api_gateway_method.card_get_report.id,
+      aws_api_gateway_integration.card_get_report_lambda.id,
     ]))
   }
 
@@ -697,24 +741,28 @@ resource "aws_api_gateway_stage" "dev" {
 
 output "api_gateway_transaction_purchase_url" {
   description = "URL completa para invocar el API de purchase"
-  value       = "${aws_api_gateway_stage.dev.invoke_url}/transactions/purchase"
+  value       = "POST: ${aws_api_gateway_stage.dev.invoke_url}/transactions/purchase"
 }
 
 output "api_gateway_transaction_save_url" {
   description = "URL completa para invocar el API de save"
-  value       = "${aws_api_gateway_stage.dev.invoke_url}/transactions/save/{card_id}"
+  value       = "POST: ${aws_api_gateway_stage.dev.invoke_url}/transactions/save/{card_id}"
 }
 
 output "api_gateway_card_paid_url" {
   description = "URL completa para invocar el API de card paid"
-  value       = "${aws_api_gateway_stage.dev.invoke_url}/card/paid/{card_id}"
+  value       = "POST: ${aws_api_gateway_stage.dev.invoke_url}/card/paid/{card_id}"
 }
 
 output "api_gateway_card_activate_url" {
   description = "URL completa para invocar el API de card activate"
-  value       = "${aws_api_gateway_stage.dev.invoke_url}/card/activate"
+  value       = "POST: ${aws_api_gateway_stage.dev.invoke_url}/card/activate"
 }
 
+output "api_gateway_card_get_report_url" {
+  description = "URL completa para invocar el API de get report"
+  value       = "GET: ${aws_api_gateway_stage.dev.invoke_url}/card/{card_id}"
+}
 
 # bucket s3 para almacenamiento transactions-report-bucket
 

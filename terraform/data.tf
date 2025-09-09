@@ -324,4 +324,16 @@ data "aws_iam_policy_document" "lambda_card_get_report_execution" {
       aws_dynamodb_table.transaction-table.arn
     ]
   }
+
+  
+  statement { # Permitir a la lambda leer 
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:Scan",
+    ]
+    resources = [
+      aws_dynamodb_table.card-table.arn
+    ]
+  }
 }

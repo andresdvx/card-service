@@ -11,6 +11,7 @@ export const handler = async (
     const body = JSON.parse(event.body || "{}");
     const TRANSACTION_TABLE_NAME = process.env.DYNAMODB_TRANSACTION_TABLE!;
     const S3_BUCKET = process.env.S3_BUCKET_NAME!;
+    const CARD_TABLE_NAME = process.env.DYNAMODB_CARDS_TABLE!;
     const cardId = event.pathParameters?.card_id;
     const { start, end } = body;
 
@@ -24,6 +25,17 @@ export const handler = async (
     const dynamoDBService = new DynamoDBService();
     const s3Service = new S3Service(S3_BUCKET);
 
+
+    const cardRes = await dynamoDBService.getItem({
+      TableName: CARD_TABLE_NAME,
+      Key: { uuid: cardId },
+    });
+    if (!cardRes.Item) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: "Card not found" }),
+      };
+    }
 
     const transactionsRes = await dynamoDBService.scanTable({
       TableName: TRANSACTION_TABLE_NAME,
