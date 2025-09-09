@@ -302,14 +302,26 @@ data "aws_iam_policy_document" "lambda_card_activate_execution" {
 
 data "aws_iam_policy_document" "lambda_card_get_report_execution" {
 
-  statement {
+  statement { # Permitir a la lambda interactuar con el bucket S3 de reportes
     effect = "Allow"
     actions = [
+      "s3:PutObject",
       "s3:listBucket",
       "s3:GetObject",
     ]
     resources = [
-      aws_s3_bucket.transactions_report_bucket.arn,
+      "${aws_s3_bucket.transactions_report_bucket.arn}/*"
+    ]
+  }
+
+  statement { # Permitir a la lambda escribir en la tabla DynamoDB de transacciones
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:Scan"
+    ]
+    resources = [
+      aws_dynamodb_table.transaction-table.arn
     ]
   }
 }

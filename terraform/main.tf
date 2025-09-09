@@ -417,6 +417,7 @@ resource "aws_lambda_function" "card-get-report-lambda" {
 
   environment {
     variables = {
+      DYNAMODB_TRANSACTION_TABLE  = aws_dynamodb_table.transaction-table.name
       S3_BUCKET_NAME = aws_s3_bucket.transactions_report_bucket.bucket
     }
   }
@@ -424,7 +425,8 @@ resource "aws_lambda_function" "card-get-report-lambda" {
   depends_on = [
     aws_iam_role_policy.iam_policy_lambda_card_get_report,
     data.archive_file.lambda_card-get-report-lambda_file,
-    aws_s3_bucket.transactions_report_bucket
+    aws_s3_bucket.transactions_report_bucket,
+    aws_dynamodb_table.transaction-table
   ]
 }
 
