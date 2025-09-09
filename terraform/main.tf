@@ -716,7 +716,6 @@ output "api_gateway_card_activate_url" {
 }
 
 
-
 # bucket s3 para almacenamiento transactions-report-bucket
 
 resource "aws_s3_bucket" "transactions_report_bucket" {

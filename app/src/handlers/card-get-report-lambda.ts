@@ -11,25 +11,25 @@ export const handler = async (
     const body = JSON.parse(event.body || "{}");
     const TRANSACTION_TABLE_NAME = process.env.DYNAMODB_TRANSACTION_TABLE!;
     const S3_BUCKET = process.env.S3_BUCKET_NAME!;
-    const REGION = "us-west-1";
-
+    const cardId = event.pathParameters?.card_id;
     const { start, end } = body;
 
-    if (!start || !end) {
+    if (!start || !end || !cardId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "start and end are required" }),
+        body: JSON.stringify({ error: "start, end and card_id are required" }),
       };
     }
 
     const dynamoDBService = new DynamoDBService();
     const s3Service = new S3Service(S3_BUCKET);
 
-   
+
     const transactionsRes = await dynamoDBService.scanTable({
       TableName: TRANSACTION_TABLE_NAME,
-      FilterExpression: "createdAt BETWEEN :start AND :end",
+      FilterExpression: "cardId = :cardId AND createdAt BETWEEN :start AND :end",
       ExpressionAttributeValues: {
+        ":cardId": cardId,
         ":start": start,
         ":end": end,
       },
@@ -37,16 +37,13 @@ export const handler = async (
 
     const transactions = transactionsRes.Items || [];
 
- 
     const fileContent = transactions
       .map((tx: Record<string, any>) => JSON.stringify(tx))
       .join("\n");
-    const fileName = `report-${Date.now()}.txt`;
+    const fileName = `report-${cardId}-${Date.now()}.txt`;
 
-   
     await s3Service.uploadTxtFile(fileName, fileContent);
 
-   
     const command = new GetObjectCommand({
       Bucket: S3_BUCKET,
       Key: fileName,
@@ -54,7 +51,7 @@ export const handler = async (
 
     const signedUrl = await getSignedUrl(s3Service["client"], command, {
       expiresIn: 3600,
-    }); 
+    });
 
     return {
       statusCode: 200,
