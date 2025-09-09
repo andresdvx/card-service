@@ -69,3 +69,15 @@ variable "lambda_card_transaction_save_handler" {
   type        = string
   default     = "card-transaction-save-lambda.handler"
 }
+
+variable "lambda_card_paid_credit_card" {
+  description = "Lambda para procesar pagos de cupo usado de la tarjeta"
+  type        = string
+  default     = "card-paid-credit-card-lambda"
+}
+
+variable "lambda_card_paid_credit_card_handler" {
+  description = "Handler de la Lambda para procesar pagos de cupo usado de la tarjeta"
+  type        = string
+  default     = "card-paid-credit-card-lambda.handler"
+}

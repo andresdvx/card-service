@@ -227,7 +227,8 @@ resource "aws_lambda_function" "card-purchase-lambda" {
 
   environment {
     variables = {
-      DYNAMODB_TRANSACTION_TABLE = aws_dynamodb_table.transaction-table.name
+      DYNAMODB_CARDS_TABLE        = aws_dynamodb_table.card-table.name
+      DYNAMODB_TRANSACTION_TABLE  = aws_dynamodb_table.transaction-table.name
       NOTIFICATIONS_EMAIL_SQS_URL = data.aws_sqs_queue.notification-email-sqs.url
     }
   }
@@ -261,30 +262,30 @@ resource "aws_iam_role_policy_attachment" "iam_policy_attachment_lambda_card_pur
 
 # -> Lambda para agregar saldo a una tarjeta
 resource "aws_lambda_function" "card-transaction-save-lambda" {
-  filename = data.archive_file.lambda_card_transaction_save_file.output_path
-  function_name = var.lambda_card_transaction_save
-  handler = var.lambda_card_transaction_save_handler
-  runtime = "nodejs22.x"
-  timeout = 900
-  memory_size = 256
-  role = aws_iam_role.iam_rol_lambda_card_transaction_save.arn
+  filename         = data.archive_file.lambda_card_transaction_save_file.output_path
+  function_name    = var.lambda_card_transaction_save
+  handler          = var.lambda_card_transaction_save_handler
+  runtime          = "nodejs22.x"
+  timeout          = 900
+  memory_size      = 256
+  role             = aws_iam_role.iam_rol_lambda_card_transaction_save.arn
   source_code_hash = data.archive_file.lambda_card_transaction_save_file.output_base64sha256
-  publish = true
+  publish          = true
 
 
   environment {
     variables = {
-      DYNAMODB_CARDS_TABLE = aws_dynamodb_table.card-table.name
-      DYNAMODB_TRANSACTION_TABLE = aws_dynamodb_table.transaction-table.name
+      DYNAMODB_CARDS_TABLE        = aws_dynamodb_table.card-table.name
+      DYNAMODB_TRANSACTION_TABLE  = aws_dynamodb_table.transaction-table.name
       NOTIFICATIONS_EMAIL_SQS_URL = data.aws_sqs_queue.notification-email-sqs.url
     }
   }
 
-  depends_on = [ 
+  depends_on = [
     aws_iam_role_policy.iam_policy_lambda_card_transaction_save,
     data.archive_file.lambda_card_transaction_save_file,
     aws_dynamodb_table.transaction-table
-   ]
+  ]
 }
 
 # IAM Role para la lambda de agregar saldo a una tarjeta
@@ -303,5 +304,52 @@ resource "aws_iam_role_policy" "iam_policy_lambda_card_transaction_save" {
 # Adjuntar la política gestionada AWSLambdaBasicExecutionRole a la IAM Role de la lambda
 resource "aws_iam_role_policy_attachment" "iam_policy_attachment_lambda_card_transaction_save" {
   role       = aws_iam_role.iam_rol_lambda_card_transaction_save.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+
+# -> Lambda para procesar pagos de cupo usado de la tarjeta
+resource "aws_lambda_function" "card-paid-credit-card-lambda" {
+  filename         = data.archive_file.lambda_card_paid_credit_card_file.output_path
+  function_name    = var.lambda_card_paid_credit_card
+  handler          = var.lambda_card_paid_credit_card_handler
+  runtime          = "nodejs22.x"
+  timeout          = 900
+  memory_size      = 256
+  role             = aws_iam_role.iam_rol_lambda_card_paid_credit_card.arn
+  source_code_hash = data.archive_file.lambda_card_paid_credit_card_file.output_base64sha256
+  publish          = true
+
+  environment {
+    variables = {
+      DYNAMODB_TRANSACTION_TABLE  = aws_dynamodb_table.transaction-table.name
+      DYNAMODB_CARDS_TABLE        = aws_dynamodb_table.card-table.name
+      NOTIFICATIONS_EMAIL_SQS_URL = data.aws_sqs_queue.notification-email-sqs.url
+    }
+  }
+
+  depends_on = [
+    aws_iam_role_policy.iam_policy_card_paid_credit_card_lambda,
+    data.archive_file.lambda_card_paid_credit_card_file,
+    aws_dynamodb_table.transaction-table
+  ]
+}
+
+# IAM Role para la lambda de procesar pagos de cupo usado de la tarjeta
+resource "aws_iam_role" "iam_rol_lambda_card_paid_credit_card" {
+  name               = "iam_rol_lambda_card_paid_credit_card"
+  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
+}
+
+# IAM Policy para la lambda de procesar pagos de cupo usado de la tarjeta
+resource "aws_iam_role_policy" "iam_policy_card_paid_credit_card_lambda" {
+  name   = "iam_policy_card_paid_credit_card_lambda"
+  role   = aws_iam_role.iam_rol_lambda_card_paid_credit_card.id
+  policy = data.aws_iam_policy_document.lambda_card_paid_credit_card_execution.json
+}
+
+# Adjuntar la política gestionada AWSLambdaBasicExecutionRole a la IAM Role de la lambda
+resource "aws_iam_role_policy_attachment" "iam_rol_lambda_card_paid_credit_card" {
+  role       = aws_iam_role.iam_rol_lambda_card_paid_credit_card.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }

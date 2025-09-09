@@ -26,6 +26,12 @@ data "archive_file" "lambda_card_transaction_save_file" {
   output_path = "lambda_card-transaction-save-lambda.zip"
 }
 
+data "archive_file" "lambda_card_paid_credit_card_file" {
+  type        = "zip"
+  source_file = "${path.module}/../app/dist/card-paid-credit-card-lambda.js"
+  output_path = "lambda_card-paid-credit-card-lambda.zip"
+}
+
 # IAM Role Policy Document for Lambda Assume Role
 data "aws_iam_policy_document" "assume_role_policy" {
   statement {
@@ -108,35 +114,6 @@ data "aws_sqs_queue" "notification-email-sqs" {
 # IAM Role Policy Document for Lambda Card Purchase Execution
 data "aws_iam_policy_document" "lambda_card_purchase_execution" {
 
-  statement { # Permitir a la lambda escribir en la tabla DynamoDB de compras con tarjeta
-    effect = "Allow"
-    actions = [
-      "dynamodb:PutItem",
-      "dynamodb:GetItem",
-      "dynamodb:UpdateItem"
-    ]
-    resources = [
-      aws_dynamodb_table.transaction-table.arn
-    ]
-  }
-
-  statement { # Permitir a la lambda interactuar con la cola SQS de notificaciones
-    effect = "Allow"
-    actions = [
-      "sqs:GetQueueAttributes",
-      "sqs:SendMessage",
-      "sqs:ReceiveMessage",
-      "sqs:DeleteMessage",
-      "sqs:GetQueueUrl"
-    ]
-    resources = [
-      data.aws_sqs_queue.notification-email-sqs.arn
-    ]
-  }
-}
-
-data "aws_iam_policy_document" "lambda_card_transaction_save_execution" {
-
   statement { # Permitir a la lambda leer y actualizar la tabla DynamoDB de tarjetas
     effect = "Allow"
     actions = [
@@ -182,5 +159,85 @@ data "aws_iam_policy_document" "lambda_card_transaction_save_execution" {
       "logs:PutLogEvents"
     ]
     resources = ["arn:aws:logs:*:*:*"]
+  }
+}
+
+data "aws_iam_policy_document" "lambda_card_transaction_save_execution" {
+
+  statement { # Permitir a la lambda leer y actualizar la tabla DynamoDB de tarjetas
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:UpdateItem"
+    ]
+    resources = [
+      aws_dynamodb_table.card-table.arn
+    ]
+  }
+
+  statement { # Permitir a la lambda escribir en la tabla DynamoDB de transacciones
+    effect = "Allow"
+    actions = [
+      "dynamodb:PutItem",
+      "dynamodb:GetItem",
+      "dynamodb:UpdateItem"
+    ]
+    resources = [
+      aws_dynamodb_table.transaction-table.arn
+    ]
+  }
+
+  statement { # Permitir a la lambda interactuar con la cola SQS de notificaciones
+    effect = "Allow"
+    actions = [
+      "sqs:GetQueueAttributes",
+      "sqs:SendMessage",
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueUrl"
+    ]
+    resources = [
+      data.aws_sqs_queue.notification-email-sqs.arn
+    ]
+  }
+}
+
+data "aws_iam_policy_document" "lambda_card_paid_credit_card_execution" {
+
+  statement { # Permitir a la lambda leer y actualizar la tabla DynamoDB de tarjetas
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:UpdateItem"
+    ]
+    resources = [
+      aws_dynamodb_table.card-table.arn
+    ]
+  }
+
+  statement { # Permitir a la lambda escribir en la tabla DynamoDB de transacciones
+    effect = "Allow"
+    actions = [
+      "dynamodb:PutItem",
+      "dynamodb:GetItem",
+      "dynamodb:UpdateItem"
+    ]
+    resources = [
+      aws_dynamodb_table.transaction-table.arn
+    ]
+  }
+
+  statement { # Permitir a la lambda interactuar con la cola SQS de notificaciones
+    effect = "Allow"
+    actions = [
+      "sqs:GetQueueAttributes",
+      "sqs:SendMessage",
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueUrl"
+    ]
+    resources = [
+      data.aws_sqs_queue.notification-email-sqs.arn
+    ]
   }
 }
