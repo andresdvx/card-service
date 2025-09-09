@@ -107,7 +107,7 @@ data "aws_iam_policy_document" "lambda_card_request_failed_execution" {
 
 # Data Source para obtener la sqs existente
 data "aws_sqs_queue" "notification-email-sqs" {
-  name = "inferno-bank-notification-email-sqs-dev" #notification-email-sqs
+  name = "notification-email-sqs" #notification-email-sqs
 }
 
 
