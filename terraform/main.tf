@@ -860,6 +860,53 @@ resource "aws_lambda_permission" "api_gateway_lambda_get_profile" {
 
 # --- FIN INTEGRACIÓN END POINT GET PROFILE GET /profile/{user_id} ---
 
+
+# --- INTEGRACIÓN ENDPOINT POST /profile{user_id}/avatar ---
+
+# API Gateway Resource: /profile/{user_id}/avatar
+resource "aws_api_gateway_resource" "profile_user_id_avatar" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  parent_id   = aws_api_gateway_resource.profile_user_id.id
+  path_part   = "avatar"
+}
+
+# API Gateway Method: POST /profile/{user_id}/avatar
+resource "aws_api_gateway_method" "profile_avatar_post" {
+  rest_api_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id   = aws_api_gateway_resource.profile_user_id_avatar.id
+  http_method   = "POST"
+  authorization = "NONE"
+
+  request_parameters = {
+    "method.request.path.user_id" = true
+  }
+}
+
+# API Gateway Integration: Lambda for Upload Avatar
+resource "aws_api_gateway_integration" "profile_avatar_upload_lambda" {
+  rest_api_id             = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id             = aws_api_gateway_resource.profile_user_id_avatar.id
+  http_method             = aws_api_gateway_method.profile_avatar_post.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = data.aws_lambda_function.inferno-user-service-dev-upload-avatar.invoke_arn
+
+  request_parameters = {
+    "integration.request.path.user_id" = "method.request.path.user_id"
+  }
+}
+
+# Lambda Permission for API Gateway Upload Avatar
+resource "aws_lambda_permission" "api_gateway_lambda_upload_avatar" {
+  statement_id  = "AllowExecutionFromAPIGatewayUploadAvatar"
+  action        = "lambda:InvokeFunction"
+  function_name = data.aws_lambda_function.inferno-user-service-dev-upload-avatar.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn}/*/*"
+}
+
+# --- FIN INTEGRACIÓN ENDPOINT POST /profile{user_id}/avatar ---
+
 # API Gateway Deployment
 resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
   depends_on = [
@@ -880,7 +927,9 @@ resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
     aws_api_gateway_method.profile_put,
     aws_api_gateway_integration.profile_update_lambda,
     aws_api_gateway_method.profile_get,
-    aws_api_gateway_integration.profile_get_lambda
+    aws_api_gateway_integration.profile_get_lambda,
+    aws_api_gateway_method.profile_avatar_post,
+    aws_api_gateway_integration.profile_avatar_upload_lambda
   ]
 
   rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
@@ -905,6 +954,8 @@ resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
       aws_api_gateway_integration.profile_update_lambda.id,
       aws_api_gateway_method.profile_get.id,
       aws_api_gateway_integration.profile_get_lambda.id,
+      aws_api_gateway_method.profile_avatar_post.id,
+      aws_api_gateway_integration.profile_avatar_upload_lambda.id,
     ]))
   }
 

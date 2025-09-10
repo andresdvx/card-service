@@ -18,6 +18,11 @@ output "api_gateway_get_profile_url" {
   value       = "GET: ${aws_api_gateway_stage.dev.invoke_url}/profile/{user_id}"
 }
 
+output "api_gateway_upload_avatar_url" {
+  description = "URL completa para invocar el API de upload avatar"
+  value       = "POST: ${aws_api_gateway_stage.dev.invoke_url}/profile/{user_id}/avatar"
+}
+
 output "api_gateway_transaction_purchase_url" {
   description = "URL completa para invocar el API de purchase"
   value       = "POST: ${aws_api_gateway_stage.dev.invoke_url}/transactions/purchase"
