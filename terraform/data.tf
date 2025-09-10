@@ -125,6 +125,30 @@ data "aws_sqs_queue" "notification-email-sqs" {
   name = "notification-email-sqs" #notification-email-sqs
 }
 
+# Data Source para obtener la lambda de register existente
+data "aws_lambda_function" "inferno-user-service-dev-register-user" {
+  function_name = "inferno-user-service-dev-register-user"
+}
+
+# Data Source para obtener la lambda de login existente
+data "aws_lambda_function" "inferno-user-service-dev-login-user" {
+  function_name = "inferno-user-service-dev-login-user"
+}
+
+# Data Source para obtener la lambda de update profile existente
+data "aws_lambda_function" "inferno-user-service-dev-update-profile" {
+  function_name = "inferno-user-service-dev-update-profile"
+}
+
+# Data Source para obtener la lambda de upload avatar existente
+data "aws_lambda_function" "inferno-user-service-dev-upload-avatar" {
+  function_name = "inferno-user-service-dev-upload-avatar"
+}
+
+# Data Source para obtener la lambda de get profile existente
+data "aws_lambda_function" "inferno-user-service-dev-get-profile" {
+  function_name = "inferno-user-service-dev-get-profile"
+}
 
 # IAM Role Policy Document for Lambda Card Purchase Execution
 data "aws_iam_policy_document" "lambda_card_purchase_execution" {

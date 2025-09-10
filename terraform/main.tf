@@ -691,6 +691,39 @@ resource "aws_lambda_permission" "api_gateway_lambda_card_get_report" {
 }
 # --- FIN INTEGRACIÓN ENDPOINT GET /card/{card_id} ---
 
+
+# --- INTEGRACIÓN ENDPOINT POST /register ---
+resource "aws_api_gateway_resource" "register" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  parent_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.root_resource_id
+  path_part   = "register"
+}
+
+resource "aws_api_gateway_method" "register_post" {
+  rest_api_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id   = aws_api_gateway_resource.register.id
+  http_method   = "POST"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "register_lambda" {
+  rest_api_id             = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id             = aws_api_gateway_resource.register.id
+  http_method             = aws_api_gateway_method.register_post.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = data.aws_lambda_function.inferno-user-service-dev-register-user.invoke_arn
+}
+
+resource "aws_lambda_permission" "api_gateway_lambda_register" {
+  statement_id  = "AllowExecutionFromAPIGatewayRegister"
+  action        = "lambda:InvokeFunction"
+  function_name = data.aws_lambda_function.inferno-user-service-dev-register-user.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn}/*/*"
+}
+# --- FIN INTEGRACIÓN ENDPOINT POST /register ---
+
 # API Gateway Deployment
 resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
   depends_on = [
@@ -704,6 +737,8 @@ resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
     aws_api_gateway_integration.card_activate_lambda,
     aws_api_gateway_method.card_get_report,
     aws_api_gateway_integration.card_get_report_lambda,
+    aws_api_gateway_method.register_post,
+    aws_api_gateway_integration.register_lambda
   ]
 
   rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
@@ -720,6 +755,8 @@ resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
       aws_api_gateway_integration.card_activate_lambda.id,
       aws_api_gateway_method.card_get_report.id,
       aws_api_gateway_integration.card_get_report_lambda.id,
+      aws_api_gateway_method.register_post.id,
+      aws_api_gateway_integration.register_lambda.id,
     ]))
   }
 
@@ -739,6 +776,10 @@ resource "aws_api_gateway_stage" "dev" {
   }
 }
 
+output "api_gateway_register" {
+  description = "URL completa para invocar el API de register"
+  value       = "POST: ${aws_api_gateway_stage.dev.invoke_url}/register"
+}
 
 output "api_gateway_transaction_purchase_url" {
   description = "URL completa para invocar el API de purchase"
