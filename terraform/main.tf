@@ -693,6 +693,8 @@ resource "aws_lambda_permission" "api_gateway_lambda_card_get_report" {
 
 
 # --- INTEGRACIÓN ENDPOINT POST /register ---
+
+# API Gateway Resource: /register
 resource "aws_api_gateway_resource" "register" {
   rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
   parent_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.root_resource_id
@@ -706,6 +708,7 @@ resource "aws_api_gateway_method" "register_post" {
   authorization = "NONE"
 }
 
+# API Gateway Integration: Lambda for Register
 resource "aws_api_gateway_integration" "register_lambda" {
   rest_api_id             = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
   resource_id             = aws_api_gateway_resource.register.id
@@ -715,6 +718,7 @@ resource "aws_api_gateway_integration" "register_lambda" {
   uri                     = data.aws_lambda_function.inferno-user-service-dev-register-user.invoke_arn
 }
 
+# Lambda Permission for API Gateway Register
 resource "aws_lambda_permission" "api_gateway_lambda_register" {
   statement_id  = "AllowExecutionFromAPIGatewayRegister"
   action        = "lambda:InvokeFunction"
@@ -726,12 +730,15 @@ resource "aws_lambda_permission" "api_gateway_lambda_register" {
 
 
 # --- INTEGRACION ENDPOINT POST /LOGIN ---
+
+# API Gateway Resource: /login
 resource "aws_api_gateway_resource" "login" {
   rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
   parent_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.root_resource_id
   path_part   = "login"
 }
 
+# API Gateway Method: POST /login
 resource "aws_api_gateway_method" "login_post" {
   rest_api_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
   resource_id   = aws_api_gateway_resource.login.id
@@ -739,6 +746,7 @@ resource "aws_api_gateway_method" "login_post" {
   authorization = "NONE"
 }
 
+# API Gateway Integration: Lambda for Login
 resource "aws_api_gateway_integration" "login_lambda" {
   rest_api_id             = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
   resource_id             = aws_api_gateway_resource.login.id
@@ -748,6 +756,7 @@ resource "aws_api_gateway_integration" "login_lambda" {
   uri                     = data.aws_lambda_function.inferno-user-service-dev-login-user.invoke_arn
 }
 
+# Lambda Permission for API Gateway Login
 resource "aws_lambda_permission" "api_gateway_lambda_login" {
   statement_id  = "AllowExecutionFromAPIGatewayLogin"
   action        = "lambda:InvokeFunction"
@@ -756,6 +765,60 @@ resource "aws_lambda_permission" "api_gateway_lambda_login" {
   source_arn    = "${aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn}/*/*"
 }
 # --- FIN INTEGRACION ENDPOINT POST /LOGIN ---
+
+
+# --- INTEGRACION ENDPOINT UPDATE PROFILE ---
+
+# API Gateway Resource: /profile
+resource "aws_api_gateway_resource" "profile" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  parent_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.root_resource_id
+  path_part   = "profile"
+}
+
+# API Gateway Resource: /profile/{user_id}
+resource "aws_api_gateway_resource" "profile_user_id" {
+  rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  parent_id   = aws_api_gateway_resource.profile.id
+  path_part   = "{user_id}"
+}
+
+# API Gateway Method: PUT /profile/{user_id}
+resource "aws_api_gateway_method" "profile_put" {
+  rest_api_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id   = aws_api_gateway_resource.profile_user_id.id
+  http_method   = "PUT"
+  authorization = "NONE"
+
+  request_parameters = {
+    "method.request.path.user_id" = true
+  }
+}
+
+# API Gateway Integration: Lambda for Update Profile
+resource "aws_api_gateway_integration" "profile_update_lambda" {
+  rest_api_id             = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id             = aws_api_gateway_resource.profile_user_id.id
+  http_method             = aws_api_gateway_method.profile_put.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = data.aws_lambda_function.inferno-user-service-dev-update-profile.invoke_arn
+
+  request_parameters = {
+    "integration.request.path.user_id" = "method.request.path.user_id"
+  }
+}
+
+# Lambda Permission for API Gateway Update Profile
+resource "aws_lambda_permission" "api_gateway_lambda_update_profile" {
+  statement_id  = "AllowExecutionFromAPIGatewayUpdateProfile"
+  action        = "lambda:InvokeFunction"
+  function_name = data.aws_lambda_function.inferno-user-service-dev-update-profile.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn}/*/*"
+}
+
+# --- FIN INTEGRACION ENDPOINT UPDATE PROFILE ---
 
 # API Gateway Deployment
 resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
@@ -773,7 +836,9 @@ resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
     aws_api_gateway_method.register_post,
     aws_api_gateway_integration.register_lambda,
     aws_api_gateway_method.login_post,
-    aws_api_gateway_integration.login_lambda
+    aws_api_gateway_integration.login_lambda,
+    aws_api_gateway_method.profile_put,
+    aws_api_gateway_integration.profile_update_lambda
   ]
 
   rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
@@ -794,6 +859,8 @@ resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
       aws_api_gateway_integration.register_lambda.id,
       aws_api_gateway_method.login_post.id,
       aws_api_gateway_integration.login_lambda.id,
+      aws_api_gateway_method.profile_put.id,
+      aws_api_gateway_integration.profile_update_lambda.id,
     ]))
   }
 
@@ -812,7 +879,6 @@ resource "aws_api_gateway_stage" "dev" {
     Environment = "development"
   }
 }
-
 
 
 # bucket s3 para almacenamiento transactions-report-bucket

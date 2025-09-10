@@ -8,6 +8,11 @@ output "api_gateway_login" {
   value       = "POST: ${aws_api_gateway_stage.dev.invoke_url}/login"
 }
 
+output "api_gateway_update_profile_url" {
+  description = "URL completa para invocar el API de update profile"
+  value       = "PUT: ${aws_api_gateway_stage.dev.invoke_url}/profile/{user_id}"
+}
+
 output "api_gateway_transaction_purchase_url" {
   description = "URL completa para invocar el API de purchase"
   value       = "POST: ${aws_api_gateway_stage.dev.invoke_url}/transactions/purchase"
@@ -32,3 +37,4 @@ output "api_gateway_card_get_report_url" {
   description = "URL completa para invocar el API de get report"
   value       = "GET: ${aws_api_gateway_stage.dev.invoke_url}/card/{card_id}"
 }
+
