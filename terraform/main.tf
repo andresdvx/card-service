@@ -820,6 +820,46 @@ resource "aws_lambda_permission" "api_gateway_lambda_update_profile" {
 
 # --- FIN INTEGRACION ENDPOINT UPDATE PROFILE ---
 
+
+# --- INTEGRACIÓN END POINT GET PROFILE GET /profile/{user_id} ---
+
+# API Gateway Method: GET /profile/{user_id}
+resource "aws_api_gateway_method" "profile_get" {
+  rest_api_id   = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id   = aws_api_gateway_resource.profile_user_id.id
+  http_method   = "GET"
+  authorization = "NONE"
+
+  request_parameters = {
+    "method.request.path.user_id" = true
+  }
+}
+
+# API Gateway Integration: Lambda for Get Profile
+resource "aws_api_gateway_integration" "profile_get_lambda" {
+  rest_api_id             = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
+  resource_id             = aws_api_gateway_resource.profile_user_id.id
+  http_method             = aws_api_gateway_method.profile_get.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = data.aws_lambda_function.inferno-user-service-dev-get-profile.invoke_arn
+
+  request_parameters = {
+    "integration.request.path.user_id" = "method.request.path.user_id"
+  }
+}
+
+# Lambda Permission for API Gateway Get Profile
+resource "aws_lambda_permission" "api_gateway_lambda_get_profile" {
+  statement_id  = "AllowExecutionFromAPIGatewayGetProfile"
+  action        = "lambda:InvokeFunction"
+  function_name = data.aws_lambda_function.inferno-user-service-dev-get-profile.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.inferno-bank-api-gateway.execution_arn}/*/*"
+}
+
+# --- FIN INTEGRACIÓN END POINT GET PROFILE GET /profile/{user_id} ---
+
 # API Gateway Deployment
 resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
   depends_on = [
@@ -838,7 +878,9 @@ resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
     aws_api_gateway_method.login_post,
     aws_api_gateway_integration.login_lambda,
     aws_api_gateway_method.profile_put,
-    aws_api_gateway_integration.profile_update_lambda
+    aws_api_gateway_integration.profile_update_lambda,
+    aws_api_gateway_method.profile_get,
+    aws_api_gateway_integration.profile_get_lambda
   ]
 
   rest_api_id = aws_api_gateway_rest_api.inferno-bank-api-gateway.id
@@ -861,6 +903,8 @@ resource "aws_api_gateway_deployment" "inferno_bank_api_gateway_deployment" {
       aws_api_gateway_integration.login_lambda.id,
       aws_api_gateway_method.profile_put.id,
       aws_api_gateway_integration.profile_update_lambda.id,
+      aws_api_gateway_method.profile_get.id,
+      aws_api_gateway_integration.profile_get_lambda.id,
     ]))
   }
 
